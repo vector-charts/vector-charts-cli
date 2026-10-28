@@ -1,0 +1,11 @@
+/vc
+/bin/
+/dist/
+/result
+/result-*
+*.exe
+*.test
+*.out
+.idea/
+.vscode/
+.DS_Store

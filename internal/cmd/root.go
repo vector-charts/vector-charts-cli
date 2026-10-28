@@ -1,0 +1,121 @@
+package cmd
+
+import (
+	"os"
+
+	"github.com/spf13/cobra"
+	"github.com/zydro-marine/vector-charts-cli/internal/cli"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/charts"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/jobs"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/server"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/token"
+	"github.com/zydro-marine/vector-charts-cli/internal/config"
+	"github.com/zydro-marine/vector-charts-cli/internal/httpx"
+	"github.com/zydro-marine/vector-charts-cli/internal/output"
+)
+
+var (
+	Version   = "0.1.0"
+	profile   string
+	outputFmt string
+	urlFlag   string
+)
+
+func NewRoot() *cobra.Command {
+	root := &cobra.Command{
+		Use:           "vc",
+		Short:         "Vector Charts command-line interface",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return output.SetFormat(outputFmt)
+		},
+	}
+
+	root.PersistentFlags().StringVar(&profile, "profile", "", "Profile name (default: current_profile)")
+	root.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Output format: table|json")
+	root.PersistentFlags().StringVar(&urlFlag, "url", "", "Override portal URL for this invocation")
+
+	root.AddCommand(newVersionCmd())
+	root.AddCommand(server.NewCommand(ResolveClient))
+	root.AddCommand(token.NewCommand(ResolveClient))
+	root.AddCommand(charts.NewCommand(ResolveClient))
+	root.AddCommand(jobs.NewCommand(ResolveClient))
+
+	return root
+}
+
+func ResolveClient(requireProfile bool) (string, config.Profile, config.Creds, *httpx.Client, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return "", config.Profile{}, config.Creds{}, nil, err
+	}
+	credsFile, err := config.LoadCredentials()
+	if err != nil {
+		return "", config.Profile{}, config.Creds{}, nil, err
+	}
+
+	name := profile
+	var p config.Profile
+
+	if urlFlag != "" {
+		validated, err := config.ValidateBaseURL(urlFlag)
+		if err != nil {
+			return "", config.Profile{}, config.Creds{}, nil, err
+		}
+		urlFlag = validated
+		if name == "" {
+			name = "(override)"
+			p = config.Profile{URL: urlFlag}
+		} else {
+			var err error
+			name, p, err = cfg.Resolve(name)
+			if err != nil {
+				return "", config.Profile{}, config.Creds{}, nil, err
+			}
+			p.URL = urlFlag
+			if p.APIURL == "" || p.Type == "" || p.Type == config.TypeOEM {
+				p.APIURL = urlFlag
+			}
+		}
+	} else {
+		var err error
+		name, p, err = cfg.Resolve(name)
+		if err != nil {
+			return "", config.Profile{}, config.Creds{}, nil, err
+		}
+	}
+
+	p = p.Normalized()
+
+	creds := config.Creds{}
+	if name != "(override)" {
+		creds = credsFile.Profiles[name]
+	}
+	client := httpx.New(p, creds)
+	return name, p, creds, client, nil
+}
+
+var _ cli.Factory = ResolveClient
+
+func Execute() {
+	root := NewRoot()
+	if err := root.Execute(); err != nil {
+		output.Errf("error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print CLI version",
+		Run: func(cmd *cobra.Command, args []string) {
+			if output.Format == "json" {
+				_ = output.JSON(map[string]string{"version": Version})
+				return
+			}
+			output.Println(Version)
+		},
+	}
+}

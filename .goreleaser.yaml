@@ -1,0 +1,55 @@
+version: 2
+
+project_name: vc
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: vc
+    main: ./cmd/vc
+    binary: vc
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/zydro-marine/vector-charts-cli/internal/cmd.Version={{.Version}}
+
+archives:
+  - id: tarball
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+nfpms:
+  - id: deb
+    package_name: vc
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Arch }}"
+    vendor: Zydro Marine Technologies, Inc.
+    homepage: https://vectorcharts.com
+    maintainer: Zydro Marine <chris@zydromarine.com>
+    description: Vector Charts command-line interface
+    license: Proprietary
+    formats: [deb]
+    bindir: /usr/bin
+    section: utils
+    priority: optional
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  draft: false
+  prerelease: auto
