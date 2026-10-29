@@ -68,11 +68,10 @@ OEM containers typically need host networking for multicast to reach the LAN.`,
 						fmt.Sprintf("%d", p.HTTPPort),
 						p.Version,
 						p.BaseURL(),
-						p.InstanceID,
 					})
 				}
 				return output.Table(
-					[]string{"NAME", "MODE", "ADDRESS", "PORT", "VERSION", "URL", "ID"},
+					[]string{"NAME", "MODE", "ADDRESS", "PORT", "VERSION", "URL"},
 					rows,
 				)
 			})
