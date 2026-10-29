@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/zydro-marine/vector-charts-cli/internal/cli"
@@ -39,15 +38,15 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
-				items := extractList(out, "jobs")
+				items := output.ExtractList(out, "jobs")
 				rows := make([][]string, 0, len(items))
 				for _, item := range items {
 					m, _ := item.(map[string]any)
 					rows = append(rows, []string{
-						str(m["id"]),
-						str(m["jobType"]),
-						str(m["jobState"]),
-						str(m["createdAt"]),
+						output.Str(m["id"]),
+						output.Str(m["jobType"]),
+						output.Str(m["jobState"]),
+						output.Str(m["createdAt"]),
 					})
 				}
 				return output.Table([]string{"ID", "TYPE", "STATE", "CREATED"}, rows)
@@ -80,31 +79,4 @@ func newStatusCmd(factory cli.Factory) *cobra.Command {
 			})
 		},
 	}
-}
-
-func extractList(v any, keys ...string) []any {
-	switch t := v.(type) {
-	case []any:
-		return t
-	case map[string]any:
-		for _, k := range keys {
-			if arr, ok := t[k].([]any); ok {
-				return arr
-			}
-		}
-	}
-	return nil
-}
-
-func str(v any) string {
-	if v == nil {
-		return ""
-	}
-	switch t := v.(type) {
-	case float64:
-		if t == float64(int64(t)) {
-			return strconv.FormatInt(int64(t), 10)
-		}
-	}
-	return fmt.Sprint(v)
 }

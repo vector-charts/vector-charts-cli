@@ -2,7 +2,7 @@
 # Install the vc binary from GitHub Releases.
 set -euo pipefail
 
-REPO="${VC_INSTALL_REPO:-zydro-marine/vector-charts-cli}"
+REPO="${VC_INSTALL_REPO:-vector-charts/vector-charts-cli}"
 VERSION="${VC_INSTALL_VERSION:-latest}"
 INSTALL_DIR="${VC_INSTALL_DIR:-/usr/local/bin}"
 

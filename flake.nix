@@ -28,7 +28,7 @@
           env.CGO_ENABLED = "0";
           meta = with pkgs.lib; {
             description = "Vector Charts command-line interface";
-            homepage = "https://github.com/zydro-marine/vector-charts-cli";
+            homepage = "https://github.com/vector-charts/vector-charts-cli";
             license = licenses.unfree;
             mainProgram = "vc";
           };

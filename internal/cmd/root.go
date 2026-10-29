@@ -7,7 +7,9 @@ import (
 	"github.com/zydro-marine/vector-charts-cli/internal/cli"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/charts"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/jobs"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/permits"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/server"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/store"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/token"
 	"github.com/zydro-marine/vector-charts-cli/internal/config"
 	"github.com/zydro-marine/vector-charts-cli/internal/httpx"
@@ -32,14 +34,17 @@ func NewRoot() *cobra.Command {
 		},
 	}
 
-	root.PersistentFlags().StringVar(&profile, "profile", "", "Profile name (default: current_profile)")
-	root.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Output format: table|json")
+	root.PersistentFlags().StringVar(&profile, "profile", "", "Profile name (default: sole profile, current_profile, or \"default\")")
+	root.PersistentFlags().StringVarP(&outputFmt, "format", "f", "table", "Output format: table|json|plaintext")
+	root.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Alias for --format")
 	root.PersistentFlags().StringVar(&urlFlag, "url", "", "Override portal URL for this invocation")
 
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(server.NewCommand(ResolveClient))
 	root.AddCommand(token.NewCommand(ResolveClient))
 	root.AddCommand(charts.NewCommand(ResolveClient))
+	root.AddCommand(permits.NewCommand(ResolveClient))
+	root.AddCommand(store.NewCommand(ResolveClient))
 	root.AddCommand(jobs.NewCommand(ResolveClient))
 
 	return root

@@ -1,9 +1,6 @@
 package charts
 
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/spf13/cobra"
 	"github.com/zydro-marine/vector-charts-cli/internal/cli"
 	"github.com/zydro-marine/vector-charts-cli/internal/output"
@@ -61,15 +58,15 @@ func newUploadsCmd(factory cli.Factory) *cobra.Command {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
-				items := extractList(out, "uploads", "data")
+				items := output.ExtractList(out, "uploads", "data")
 				rows := make([][]string, 0, len(items))
 				for _, item := range items {
 					m, _ := item.(map[string]any)
 					rows = append(rows, []string{
-						str(m["id"]),
-						str(m["filename"]),
-						str(m["status"]),
-						str(m["createdAt"]),
+						output.Str(m["id"]),
+						output.Str(m["filename"]),
+						output.Str(m["status"]),
+						output.Str(m["createdAt"]),
 					})
 				}
 				return output.Table([]string{"ID", "FILENAME", "STATUS", "CREATED"}, rows)
@@ -131,15 +128,15 @@ func newCellsCmd(factory cli.Factory) *cobra.Command {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
-				items := extractList(out, "cells", "data")
+				items := output.ExtractList(out, "cells", "data")
 				rows := make([][]string, 0, len(items))
 				for _, item := range items {
 					m, _ := item.(map[string]any)
 					rows = append(rows, []string{
-						str(m["id"]),
-						str(m["cellName"]),
-						str(firstNonEmpty(m["enabled"], m["active"])),
-						str(m["sourceType"]),
+						output.Str(m["id"]),
+						output.Str(m["cellName"]),
+						output.Boolish(output.FirstNonEmpty(m["enabled"], m["active"])),
+						output.Str(m["sourceType"]),
 					})
 				}
 				return output.Table([]string{"ID", "CELL", "ENABLED", "SOURCE"}, rows)
@@ -227,46 +224,10 @@ func newPermitCmd(factory cli.Factory) *cobra.Command {
 					}
 					return output.JSON(v)
 				default:
-					output.Println(str(out))
+					output.Println(output.Str(out))
 				}
 				return nil
 			})
 		},
 	}
-}
-
-func extractList(v any, keys ...string) []any {
-	switch t := v.(type) {
-	case []any:
-		return t
-	case map[string]any:
-		for _, k := range keys {
-			if arr, ok := t[k].([]any); ok {
-				return arr
-			}
-		}
-	}
-	return nil
-}
-
-func str(v any) string {
-	if v == nil {
-		return ""
-	}
-	switch t := v.(type) {
-	case float64:
-		if t == float64(int64(t)) {
-			return strconv.FormatInt(int64(t), 10)
-		}
-	}
-	return fmt.Sprint(v)
-}
-
-func firstNonEmpty(vals ...any) any {
-	for _, v := range vals {
-		if v != nil {
-			return v
-		}
-	}
-	return nil
 }

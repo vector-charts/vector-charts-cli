@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -83,20 +84,51 @@ OEM containers typically need host networking for multicast to reach the LAN.`,
 	return cmd
 }
 
+func looksLikeURL(s string) bool {
+	return strings.Contains(s, "://")
+}
+
 func newAddCmd() *cobra.Command {
-	var url string
+	var urlFlag string
 	cmd := &cobra.Command{
-		Use:   "add <name>",
+		Use:   "add [name] [url]",
 		Short: "Add a connection profile (portal URL only)",
 		Long: `Add a named profile pointing at a portal URL.
 
 Cloud vs OEM and the tile API URL are resolved automatically after login
-from the portal whoami response (account.planInstance).`,
-		Args: cobra.ExactArgs(1),
+from the portal whoami response (account.planInstance).
+
+Examples:
+  vc server add https://cloud.vectorcharts.com
+  vc server add cloud https://cloud.vectorcharts.com
+  vc server add oem --url http://localhost:9909
+
+If name is omitted, the profile is stored as "default".`,
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
-			var err error
-			url, err = config.ValidateBaseURL(url)
+			name := "default"
+			rawURL := ""
+			switch len(args) {
+			case 1:
+				if looksLikeURL(args[0]) {
+					rawURL = args[0]
+				} else {
+					name = args[0]
+				}
+			case 2:
+				name = args[0]
+				rawURL = args[1]
+			}
+			if urlFlag != "" {
+				if rawURL != "" && rawURL != urlFlag {
+					return fmt.Errorf("conflicting URL: positional %q and --url %q", rawURL, urlFlag)
+				}
+				rawURL = urlFlag
+			}
+			if rawURL == "" {
+				return fmt.Errorf("URL is required (positional or --url)")
+			}
+			validated, err := config.ValidateBaseURL(rawURL)
 			if err != nil {
 				return err
 			}
@@ -107,18 +139,18 @@ from the portal whoami response (account.planInstance).`,
 			if _, exists := cfg.Profiles[name]; exists {
 				return fmt.Errorf("profile %q already exists", name)
 			}
-			cfg.Profiles[name] = config.Profile{URL: url}
+			cfg.Profiles[name] = config.Profile{URL: validated}
 			if cfg.CurrentProfile == "" {
 				cfg.CurrentProfile = name
 			}
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			output.Printf("Added profile %q → %s\n", name, url)
+			output.Printf("Added profile %q → %s\n", name, validated)
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&url, "url", "", "Portal base URL (e.g. https://cloud.vectorcharts.com or http://localhost:9909)")
+	cmd.Flags().StringVar(&urlFlag, "url", "", "Portal base URL (e.g. https://cloud.vectorcharts.com or http://localhost:9909)")
 	return cmd
 }
 

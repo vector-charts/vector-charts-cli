@@ -1,8 +1,6 @@
 package token
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/zydro-marine/vector-charts-cli/internal/cli"
 	"github.com/zydro-marine/vector-charts-cli/internal/output"
@@ -35,15 +33,15 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
-				tokens, _ := asSlice(out)
+				tokens := output.ExtractList(out, "tokens", "data")
 				rows := make([][]string, 0, len(tokens))
 				for _, t := range tokens {
 					m, _ := t.(map[string]any)
 					rows = append(rows, []string{
-						str(m["id"]),
-						str(m["name"]),
-						str(m["userEmail"]),
-						str(m["createdAt"]),
+						output.Str(m["id"]),
+						output.Str(m["name"]),
+						output.Str(m["userEmail"]),
+						output.Str(m["createdAt"]),
 					})
 				}
 				return output.Table([]string{"ID", "NAME", "USER", "CREATED"}, rows)
@@ -73,7 +71,7 @@ func newCreateCmd(factory cli.Factory) *cobra.Command {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
-				output.Printf("Created token %s (%s)\n", str(out["id"]), str(out["name"]))
+				output.Printf("Created token %s (%s)\n", output.Str(out["id"]), output.Str(out["name"]))
 				return nil
 			})
 		},
@@ -150,26 +148,4 @@ func newUseCmd(factory cli.Factory) *cobra.Command {
 			return nil
 		},
 	}
-}
-
-func asSlice(v any) ([]any, bool) {
-	switch t := v.(type) {
-	case []any:
-		return t, true
-	case map[string]any:
-		if arr, ok := t["tokens"].([]any); ok {
-			return arr, true
-		}
-		if arr, ok := t["data"].([]any); ok {
-			return arr, true
-		}
-	}
-	return nil, false
-}
-
-func str(v any) string {
-	if v == nil {
-		return ""
-	}
-	return fmt.Sprint(v)
 }

@@ -150,15 +150,34 @@ func SaveCredentials(f *CredentialsFile) error {
 	return os.WriteFile(CredentialsPath(), data, 0o600)
 }
 
+func (f *File) soleProfile() (string, Profile, bool) {
+	if len(f.Profiles) != 1 {
+		return "", Profile{}, false
+	}
+	for name, p := range f.Profiles {
+		return name, p.Normalized(), true
+	}
+	return "", Profile{}, false
+}
+
+// Resolve picks a profile. Empty name means: the sole profile if there is
+// only one, else current_profile, else "default".
 func (f *File) Resolve(name string) (string, Profile, error) {
 	if name == "" {
-		name = f.CurrentProfile
-	}
-	if name == "" {
-		return "", Profile{}, errors.New("no profile selected; run: vc server add … then vc server use <name>")
+		if n, p, ok := f.soleProfile(); ok {
+			return n, p, nil
+		}
+		if f.CurrentProfile != "" {
+			name = f.CurrentProfile
+		} else {
+			name = "default"
+		}
 	}
 	p, ok := f.Profiles[name]
 	if !ok {
+		if len(f.Profiles) == 0 {
+			return "", Profile{}, errors.New("no profiles configured; run: vc server add [name] <url>")
+		}
 		return "", Profile{}, fmt.Errorf("unknown profile %q", name)
 	}
 	return name, p.Normalized(), nil

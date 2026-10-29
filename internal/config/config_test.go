@@ -93,6 +93,38 @@ func TestValidateBaseURLPortSlash(t *testing.T) {
 	}
 }
 
+func TestResolveDefaults(t *testing.T) {
+	sole := &File{Profiles: map[string]Profile{
+		"local": {URL: "http://localhost:9909"},
+	}}
+	name, p, err := sole.Resolve("")
+	if err != nil || name != "local" || p.URL != "http://localhost:9909" {
+		t.Fatalf("sole profile: name=%q p=%+v err=%v", name, p, err)
+	}
+
+	multi := &File{
+		Profiles: map[string]Profile{
+			"a": {URL: "http://a.example"},
+			"b": {URL: "http://b.example"},
+		},
+	}
+	if _, _, err = multi.Resolve(""); err == nil {
+		t.Fatal("expected error for missing default with multiple profiles")
+	}
+
+	multi.Profiles["default"] = Profile{URL: "http://default.example"}
+	name, p, err = multi.Resolve("")
+	if err != nil || name != "default" || p.URL != "http://default.example" {
+		t.Fatalf("default profile: name=%q p=%+v err=%v", name, p, err)
+	}
+
+	multi.CurrentProfile = "b"
+	name, p, err = multi.Resolve("")
+	if err != nil || name != "b" || p.URL != "http://b.example" {
+		t.Fatalf("current_profile: name=%q p=%+v err=%v", name, p, err)
+	}
+}
+
 func TestLegacyPortalURL(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("VECTOR_CHARTS_HOME", dir)

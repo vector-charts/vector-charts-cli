@@ -1,18 +1,18 @@
 # Vector Charts CLI (`vc`)
 
-Command-line tool for connecting to Vector Charts Cloud and OEM instances: profile management, interactive login, API tokens, chart uploads, custom cells, and job status.
+Command-line tool for connecting to Vector Charts Cloud and OEM instances: profile management, interactive login, API tokens, chart uploads, custom cells, licenses/permits, store subscriptions, and job status.
 
 ## Install
 
 ### Convenience script
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zydro-marine/vector-charts-cli/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vector-charts/vector-charts-cli/main/scripts/install.sh | bash
 ```
 
 ### Debian / Ubuntu
 
-Download the `.deb` from [Releases](https://github.com/zydro-marine/vector-charts-cli/releases) and install:
+Download the `.deb` from [Releases](https://github.com/vector-charts/vector-charts-cli/releases) and install:
 
 ```bash
 sudo dpkg -i vc_*.deb
@@ -21,9 +21,9 @@ sudo dpkg -i vc_*.deb
 ### Nix
 
 ```bash
-nix profile install github:zydro-marine/vector-charts-cli
+nix profile install github:vector-charts/vector-charts-cli
 # or
-nix run github:zydro-marine/vector-charts-cli -- version
+nix run github:vector-charts/vector-charts-cli -- version
 ```
 
 ### From source
@@ -38,10 +38,9 @@ sudo install -m 755 vc /usr/local/bin/vc
 ```bash
 # Profiles only need a portal URL. Cloud vs OEM and the tile API host
 # are resolved automatically after login (from account.planInstance).
-vc server add cloud --url https://cloud.vectorcharts.com
-vc server add local-oem --url http://localhost:9909
+vc server add https://cloud.vectorcharts.com
+vc server add local-oem http://localhost:9909
 
-vc server use cloud
 vc server login          # opens browser device flow
 # or: vc server login --token <session-or-oem-api-token>
 # or: vc server login --username admin
@@ -50,6 +49,10 @@ vc server discover       # find instances on the LAN (UDP multicast)
 vc server list           # connectivity + auth probe
 vc server whoami
 vc charts upload ./chart.zip
+vc charts cells list
+vc permits list
+vc store list
+vc store enable au
 vc token list
 vc jobs status
 ```
@@ -61,16 +64,24 @@ Config lives under `~/.vector-charts/`:
 
 Override with `VECTOR_CHARTS_HOME`.
 
+If `--profile` is omitted: the sole profile is used when only one exists, else `current_profile`, else `default`. URL may be positional on `vc server add` (`vc server add [name] <url>`).
+
 ## Command groups
 
 | Group | Purpose |
 |-------|---------|
 | `vc server` | Profiles, login/logout, connectivity |
 | `vc token` | Portal API token CRUD |
-| `vc charts` | Upload / uploads / cells / S-63 permit |
+| `vc charts` | Upload / uploads / cells / S-63 user permit |
+| `vc permits` | List licenses and S-63 cell permits (`licenses` alias) |
+| `vc store` | Chart store subscriptions: list / enable / disable (`subscriptions` alias) |
 | `vc jobs` | List jobs and status snapshot |
 
-Global flags: `--profile`, `-o table|json`, `--url`.
+Global flags: `--profile`, `--format` / `-f` `table|json|plaintext` (`-o` alias), `--url`.
+
+- `table` — aligned columns with a header rule (default)
+- `json` — indented JSON
+- `plaintext` — tab-separated values
 
 ## Development
 
