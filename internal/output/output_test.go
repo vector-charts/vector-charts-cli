@@ -29,6 +29,7 @@ func captureStdout(t *testing.T, fn func()) string {
 
 func TestPrettyTable(t *testing.T) {
 	Format = "table"
+	t.Setenv("NO_COLOR", "1")
 	out := captureStdout(t, func() {
 		if err := Table([]string{"CODE", "NAME"}, [][]string{
 			{"au", "Australia"},
@@ -38,38 +39,121 @@ func TestPrettyTable(t *testing.T) {
 		}
 	})
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
-	if len(lines) != 4 {
-		t.Fatalf("expected 4 lines, got %d: %q", len(lines), out)
+	if len(lines) != 6 {
+		t.Fatalf("expected 6 lines, got %d: %q", len(lines), out)
 	}
-	if !strings.Contains(lines[0], "CODE") || !strings.Contains(lines[0], "NAME") {
-		t.Fatalf("bad header: %q", lines[0])
+	if !strings.HasPrefix(lines[0], "┌") || !strings.Contains(lines[0], "┬") || !strings.HasSuffix(lines[0], "┐") {
+		t.Fatalf("bad top border: %q", lines[0])
 	}
-	if !strings.Contains(lines[1], "─") {
-		t.Fatalf("expected rule line, got %q", lines[1])
+	if !strings.Contains(lines[1], "CODE") || !strings.Contains(lines[1], "NAME") {
+		t.Fatalf("bad header: %q", lines[1])
 	}
-	if !strings.Contains(lines[2], "au") || !strings.Contains(lines[3], "uk") {
+	if !strings.HasPrefix(lines[2], "├") || !strings.Contains(lines[2], "┼") {
+		t.Fatalf("expected header rule, got %q", lines[2])
+	}
+	if !strings.Contains(lines[3], "au") || !strings.Contains(lines[4], "uk") {
 		t.Fatalf("bad rows: %q", out)
+	}
+	if strings.Contains(lines[3], "┼") {
+		t.Fatalf("unexpected row separator between data rows: %q", out)
+	}
+	if !strings.HasPrefix(lines[5], "└") {
+		t.Fatalf("bad bottom border: %q", lines[5])
 	}
 }
 
-func TestPlaintextTable(t *testing.T) {
-	Format = "plaintext"
+func TestHeaderlessPrettyTable(t *testing.T) {
+	Format = "table"
+	t.Setenv("NO_COLOR", "1")
 	out := captureStdout(t, func() {
-		if err := Table([]string{"CODE", "NAME"}, [][]string{{"au", "Australia"}}); err != nil {
+		if err := Table(nil, [][]string{
+			{"default*", "http://localhost:9909", "online"},
+			{"cloud", "https://example.com", "offline, last seen 2h ago"},
+		}); err != nil {
 			t.Fatal(err)
 		}
 	})
-	want := "CODE\tNAME\nau\tAustralia\n"
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("expected 4 lines (top, 2 rows, bottom), got %d: %q", len(lines), out)
+	}
+	if !strings.HasPrefix(lines[0], "┌") {
+		t.Fatalf("expected top border: %q", lines[0])
+	}
+	if !strings.Contains(lines[1], "default*") || !strings.Contains(lines[1], "│") || !strings.Contains(lines[1], "online") {
+		t.Fatalf("bad row: %q", lines[1])
+	}
+	if strings.Contains(lines[1], "┼") || strings.HasPrefix(lines[2], "├") {
+		t.Fatalf("unexpected mid-row rule: %q", out)
+	}
+	if !strings.HasPrefix(lines[3], "└") {
+		t.Fatalf("expected bottom border: %q", lines[3])
+	}
+}
+
+func TestMultilinePrettyTable(t *testing.T) {
+	Format = "table"
+	t.Setenv("NO_COLOR", "1")
+	out := captureStdout(t, func() {
+		if err := Table(nil, [][]string{
+			{"local-oem", "online\noem\nportal ok"},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 lines (top, 3 content, bottom), got %d: %q", len(lines), out)
+	}
+	if !strings.Contains(lines[1], "local-oem") || !strings.Contains(lines[1], "online") {
+		t.Fatalf("bad first content line: %q", lines[1])
+	}
+	if strings.Contains(lines[2], "local-oem") {
+		t.Fatalf("name should only appear on first content line: %q", out)
+	}
+	if !strings.Contains(lines[2], "oem") || !strings.Contains(lines[3], "portal ok") {
+		t.Fatalf("bad status lines: %q", out)
+	}
+}
+
+func TestConnecting(t *testing.T) {
+	Format = "table"
+	t.Setenv("NO_COLOR", "1")
+	out := captureStdout(t, func() {
+		Connecting("local-oem")
+	})
+	want := "connecting to server 'local-oem'...\n"
 	if out != want {
 		t.Fatalf("got %q want %q", out, want)
+	}
+
+	Format = "json"
+	out = captureStdout(t, func() {
+		Connecting("local-oem")
+	})
+	if out != "" {
+		t.Fatalf("expected no connecting line for json, got %q", out)
+	}
+}
+
+func TestColorDisabledByNoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	if ColorEnabled() {
+		t.Fatal("expected ColorEnabled false with NO_COLOR")
+	}
+	if Green("online") != "online" || Red("offline") != "offline" || PaleGrey("x") != "x" {
+		t.Fatal("expected no ANSI when colors disabled")
 	}
 }
 
 func TestSetFormat(t *testing.T) {
-	for _, f := range []string{"table", "json", "plaintext", "JSON", "Table"} {
+	for _, f := range []string{"table", "json", "JSON", "Table"} {
 		if err := SetFormat(f); err != nil {
 			t.Fatalf("SetFormat(%q): %v", f, err)
 		}
+	}
+	if err := SetFormat("plaintext"); err == nil {
+		t.Fatal("expected error for plaintext")
 	}
 	if err := SetFormat("yaml"); err == nil {
 		t.Fatal("expected error for yaml")

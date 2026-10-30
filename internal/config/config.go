@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,6 +25,7 @@ type Profile struct {
 	PortalURL string `yaml:"portal_url,omitempty"` // legacy alias for url
 	APIURL    string `yaml:"api_url,omitempty"`
 	Type      string `yaml:"type,omitempty"`
+	LastSeen  string `yaml:"last_seen,omitempty"` // RFC3339 UTC; updated on successful contact
 }
 
 type File struct {
@@ -108,9 +110,10 @@ func Save(f *File) error {
 		p = p.Normalized()
 		// Persist canonical fields only (drop legacy portal_url).
 		cleaned.Profiles[name] = Profile{
-			URL:    p.URL,
-			APIURL: p.APIURL,
-			Type:   p.Type,
+			URL:      p.URL,
+			APIURL:   p.APIURL,
+			Type:     p.Type,
+			LastSeen: p.LastSeen,
 		}
 	}
 	data, err := yaml.Marshal(cleaned)
@@ -204,9 +207,69 @@ func (p Profile) Normalized() Profile {
 		api = url
 	}
 	return Profile{
-		URL:    url,
-		APIURL: api,
-		Type:   p.Type,
+		URL:      url,
+		APIURL:   api,
+		Type:     p.Type,
+		LastSeen: p.LastSeen,
+	}
+}
+
+// MarkSeen records that the profile's server was reachable just now.
+func (f *File) MarkSeen(name string) {
+	p, ok := f.Profiles[name]
+	if !ok {
+		return
+	}
+	p = p.Normalized()
+	p.LastSeen = time.Now().UTC().Format(time.RFC3339)
+	f.Profiles[name] = p
+}
+
+// TouchLastSeen loads config, marks the profile seen, and saves.
+func TouchLastSeen(name string) error {
+	cfg, err := Load()
+	if err != nil {
+		return err
+	}
+	if _, ok := cfg.Profiles[name]; !ok {
+		return fmt.Errorf("unknown profile %q", name)
+	}
+	cfg.MarkSeen(name)
+	return Save(cfg)
+}
+
+// FormatReachability returns "online" or "offline, last seen <duration> ago".
+func FormatReachability(online bool, lastSeenRFC3339 string) string {
+	if online {
+		return "online"
+	}
+	if lastSeenRFC3339 == "" {
+		return "offline"
+	}
+	t, err := time.Parse(time.RFC3339, lastSeenRFC3339)
+	if err != nil {
+		return "offline"
+	}
+	return "offline, last seen " + formatAgo(time.Since(t)) + " ago"
+}
+
+func formatAgo(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	switch {
+	case d < time.Minute:
+		sec := int(d.Seconds())
+		if sec < 1 {
+			sec = 1
+		}
+		return fmt.Sprintf("%ds", sec)
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
 }
 

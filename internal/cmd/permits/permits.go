@@ -38,7 +38,7 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 						output.Str(m["id"]),
 						output.CellsLabel(m),
 						output.Str(m["type"]),
-						output.EpochMS(m["expiresAt"]),
+						output.Time(m["expiresAt"]),
 						output.Boolish(m["autoRenew"]),
 					})
 				}

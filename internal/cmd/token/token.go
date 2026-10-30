@@ -8,14 +8,14 @@ import (
 
 func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "token",
-		Short: "Manage portal API tokens",
+		Use:     "tokens",
+		Aliases: []string{"token"},
+		Short:   "Manage portal API tokens",
 	}
 	cmd.AddCommand(newListCmd(factory))
 	cmd.AddCommand(newCreateCmd(factory))
 	cmd.AddCommand(newUpdateCmd(factory))
 	cmd.AddCommand(newDeleteCmd(factory))
-	cmd.AddCommand(newUseCmd(factory))
 	return cmd
 }
 
@@ -41,7 +41,7 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 						output.Str(m["id"]),
 						output.Str(m["name"]),
 						output.Str(m["userEmail"]),
-						output.Str(m["createdAt"]),
+						output.Time(m["createdAt"]),
 					})
 				}
 				return output.Table([]string{"ID", "NAME", "USER", "CREATED"}, rows)
@@ -123,28 +123,6 @@ func newDeleteCmd(factory cli.Factory) *cobra.Command {
 				return err
 			}
 			output.Printf("Deleted token %s\n", args[0])
-			return nil
-		},
-	}
-}
-
-func newUseCmd(factory cli.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "use <id>",
-		Short: "Store an existing API token id on the current profile",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			name, _, _, _, err := factory(true)
-			if err != nil {
-				return err
-			}
-			if err := cli.RequireNamedProfile(name); err != nil {
-				return err
-			}
-			if err := cli.SaveAPIToken(name, args[0]); err != nil {
-				return err
-			}
-			output.Printf("Profile %q now uses API token %s\n", name, args[0])
 			return nil
 		},
 	}

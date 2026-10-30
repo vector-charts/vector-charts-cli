@@ -40,7 +40,7 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 						output.Str(m["code"]),
 						output.Str(m["displayName"]),
 						productEnabled(m),
-						output.EpochMS(m["expiresAt"]),
+						output.Time(m["expiresAt"]),
 						output.OptionalBool(m["willRenew"]),
 						output.Price(m["price"]),
 					})

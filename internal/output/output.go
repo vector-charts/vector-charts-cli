@@ -4,19 +4,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/term"
 )
 
 var Format = "table"
 
+var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
 func SetFormat(f string) error {
 	switch strings.ToLower(f) {
-	case "table", "json", "plaintext":
+	case "table", "json":
 		Format = strings.ToLower(f)
 		return nil
 	default:
-		return fmt.Errorf("unsupported output format %q (use table, json, or plaintext)", f)
+		return fmt.Errorf("unsupported output format %q (use table or json)", f)
 	}
 }
 
@@ -33,79 +38,188 @@ func PrintJSONOr(v any, tableFn func() error) error {
 	return tableFn()
 }
 
-// Pretty table: aligned columns with a header rule.
-// Plaintext: tab-separated header + rows (script-friendly).
+// ColorEnabled follows https://no-color.org/ and common CLI conventions:
+// disabled when NO_COLOR is set, CLICOLOR=0, TERM=dumb, or stdout is not a TTY.
+func ColorEnabled() bool {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
+		return false
+	}
+	if os.Getenv("CLICOLOR") == "0" {
+		return false
+	}
+	if os.Getenv("TERM") == "dumb" {
+		return false
+	}
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+func Green(s string) string {
+	return colorize(s, "32")
+}
+
+func Red(s string) string {
+	return colorize(s, "31")
+}
+
+// PaleGrey is bright-black text for status lines and table borders.
+func PaleGrey(s string) string {
+	return colorize(s, "90")
+}
+
+func colorize(s, code string) string {
+	if !ColorEnabled() || s == "" {
+		return s
+	}
+	return "\x1b[" + code + "m" + s + "\x1b[0m"
+}
+
+func stripANSI(s string) string {
+	return ansiRE.ReplaceAllString(s, "")
+}
+
+func visibleLen(s string) int {
+	return utf8.RuneCountInString(stripANSI(s))
+}
+
+// Connecting prints a pale-grey status line before table output.
+// Skipped for json so machine-readable stdout stays clean.
+func Connecting(profileName string) {
+	if Format == "json" || profileName == "" {
+		return
+	}
+	fmt.Fprintln(os.Stdout, PaleGrey(fmt.Sprintf("connecting to server '%s'...", profileName)))
+}
+
+// Table prints a bordered grid with grey column dividers and a header rule.
+// Data rows are not separated. Pass nil/empty headers for a headerless list.
 func Table(headers []string, rows [][]string) error {
-	if Format == "plaintext" {
-		return plainTable(headers, rows)
-	}
-	return prettyTable(headers, rows)
+	return prettyTable(headers, rows, false)
 }
 
-func plainTable(headers []string, rows [][]string) error {
-	fmt.Fprintln(os.Stdout, strings.Join(headers, "\t"))
+// TableSeparated is like Table but draws a rule between each data row.
+func TableSeparated(headers []string, rows [][]string) error {
+	return prettyTable(headers, rows, true)
+}
+
+func columnCount(headers []string, rows [][]string) int {
+	n := len(headers)
 	for _, row := range rows {
-		cells := make([]string, len(headers))
-		for i := range headers {
-			if i < len(row) {
-				cells[i] = row[i]
-			}
+		if len(row) > n {
+			n = len(row)
 		}
-		fmt.Fprintln(os.Stdout, strings.Join(cells, "\t"))
 	}
-	return nil
+	return n
 }
 
-func prettyTable(headers []string, rows [][]string) error {
-	widths := make([]int, len(headers))
+func cellLines(cell string) []string {
+	if cell == "" {
+		return []string{""}
+	}
+	return strings.Split(cell, "\n")
+}
+
+func cellWidth(cell string) int {
+	max := 0
+	for _, line := range cellLines(cell) {
+		if w := visibleLen(line); w > max {
+			max = w
+		}
+	}
+	return max
+}
+
+func prettyTable(headers []string, rows [][]string, separateRows bool) error {
+	cols := columnCount(headers, rows)
+	if cols == 0 {
+		return nil
+	}
+	widths := make([]int, cols)
 	for i, h := range headers {
-		widths[i] = utf8.RuneCountInString(h)
+		widths[i] = visibleLen(h)
 	}
 	normalized := make([][]string, len(rows))
 	for r, row := range rows {
-		cells := make([]string, len(headers))
-		for i := range headers {
+		cells := make([]string, cols)
+		for i := 0; i < cols; i++ {
 			if i < len(row) {
 				cells[i] = row[i]
 			}
-			w := utf8.RuneCountInString(cells[i])
-			if w > widths[i] {
+			if w := cellWidth(cells[i]); w > widths[i] {
 				widths[i] = w
 			}
 		}
 		normalized[r] = cells
 	}
 
-	printPrettyRow(headers, widths)
-	printPrettyRule(widths)
-	for _, row := range normalized {
-		printPrettyRow(row, widths)
+	hasHeader := len(headers) > 0
+	fmt.Fprintln(os.Stdout, borderLine(widths, "┌", "┬", "┐"))
+	if hasHeader {
+		padded := make([]string, cols)
+		copy(padded, headers)
+		printBorderedRow(padded, widths)
+		fmt.Fprintln(os.Stdout, borderLine(widths, "├", "┼", "┤"))
 	}
+	for i, row := range normalized {
+		if separateRows && i > 0 {
+			fmt.Fprintln(os.Stdout, borderLine(widths, "├", "┼", "┤"))
+		}
+		printBorderedMultilineRow(row, widths)
+	}
+	fmt.Fprintln(os.Stdout, borderLine(widths, "└", "┴", "┘"))
 	return nil
 }
 
-func printPrettyRow(cells []string, widths []int) {
+func borderLine(widths []int, left, mid, right string) string {
 	parts := make([]string, len(widths))
+	for i, w := range widths {
+		// +2 for the padding spaces inside each cell
+		parts[i] = strings.Repeat("─", w+2)
+	}
+	return PaleGrey(left + strings.Join(parts, mid) + right)
+}
+
+func printBorderedRow(cells []string, widths []int) {
+	parts := make([]string, len(widths))
+	vbar := PaleGrey("│")
 	for i, w := range widths {
 		cell := ""
 		if i < len(cells) {
 			cell = cells[i]
 		}
-		pad := w - utf8.RuneCountInString(cell)
+		pad := w - visibleLen(cell)
 		if pad < 0 {
 			pad = 0
 		}
-		parts[i] = cell + strings.Repeat(" ", pad)
+		parts[i] = " " + cell + strings.Repeat(" ", pad) + " "
 	}
-	fmt.Fprintln(os.Stdout, strings.Join(parts, "  "))
+	fmt.Fprintln(os.Stdout, vbar+strings.Join(parts, vbar)+vbar)
 }
 
-func printPrettyRule(widths []int) {
-	parts := make([]string, len(widths))
-	for i, w := range widths {
-		parts[i] = strings.Repeat("─", w)
+// Expand a logical row whose cells may contain newlines into one printed
+// border line per content line. Shorter cells pad with blanks.
+func printBorderedMultilineRow(cells []string, widths []int) {
+	split := make([][]string, len(widths))
+	maxLines := 1
+	for i := range widths {
+		cell := ""
+		if i < len(cells) {
+			cell = cells[i]
+		}
+		lines := cellLines(cell)
+		split[i] = lines
+		if len(lines) > maxLines {
+			maxLines = len(lines)
+		}
 	}
-	fmt.Fprintln(os.Stdout, strings.Join(parts, "  "))
+	for line := 0; line < maxLines; line++ {
+		row := make([]string, len(widths))
+		for i := range widths {
+			if line < len(split[i]) {
+				row[i] = split[i][line]
+			}
+		}
+		printBorderedRow(row, widths)
+	}
 }
 
 func Println(a ...any) {

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Str renders a JSON-decoded value for table/plaintext cells.
+// Str renders a JSON-decoded value for table cells.
 func Str(v any) string {
 	if v == nil {
 		return ""
@@ -30,36 +30,128 @@ func Str(v any) string {
 	}
 }
 
-// EpochMS formats an epoch-milliseconds timestamp (or RFC3339 string) as YYYY-MM-DD.
-func EpochMS(v any) string {
-	if v == nil {
+// Time formats a timestamp (RFC3339 or epoch milliseconds) as a relative human string.
+func Time(v any) string {
+	t, ok := parseTime(v)
+	if !ok {
 		return ""
+	}
+	return formatRelative(t, time.Now())
+}
+
+// EpochMS formats a timestamp as YYYY-MM-DD (UTC). Prefer Time for table output.
+func EpochMS(v any) string {
+	t, ok := parseTime(v)
+	if !ok {
+		if v == nil {
+			return ""
+		}
+		if s, isStr := v.(string); isStr && s != "" {
+			return s
+		}
+		return Str(v)
+	}
+	return t.UTC().Format("2006-01-02")
+}
+
+func parseTime(v any) (time.Time, bool) {
+	if v == nil {
+		return time.Time{}, false
 	}
 	switch t := v.(type) {
 	case float64:
 		if t <= 0 {
-			return ""
+			return time.Time{}, false
 		}
-		return time.UnixMilli(int64(t)).UTC().Format("2006-01-02")
+		return time.UnixMilli(int64(t)), true
 	case int64:
 		if t <= 0 {
-			return ""
+			return time.Time{}, false
 		}
-		return time.UnixMilli(t).UTC().Format("2006-01-02")
+		return time.UnixMilli(t), true
 	case string:
 		if t == "" {
-			return ""
+			return time.Time{}, false
 		}
 		if ms, err := strconv.ParseInt(t, 10, 64); err == nil {
-			return time.UnixMilli(ms).UTC().Format("2006-01-02")
+			if ms <= 0 {
+				return time.Time{}, false
+			}
+			return time.UnixMilli(ms), true
 		}
 		if parsed, err := time.Parse(time.RFC3339, t); err == nil {
-			return parsed.UTC().Format("2006-01-02")
+			return parsed, true
 		}
-		return t
+		if parsed, err := time.Parse(time.RFC3339Nano, t); err == nil {
+			return parsed, true
+		}
+		return time.Time{}, false
 	default:
-		return Str(v)
+		return time.Time{}, false
 	}
+}
+
+func formatRelative(t, now time.Time) string {
+	d := now.Sub(t)
+	future := d < 0
+	if future {
+		d = -d
+	}
+	label := formatAgo(d)
+	if future {
+		return "in " + label
+	}
+	return label + " ago"
+}
+
+func formatAgo(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	switch {
+	case d < time.Minute:
+		sec := int(d.Seconds())
+		if sec < 1 {
+			sec = 1
+		}
+		return fmt.Sprintf("%ds", sec)
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		days := int(d.Hours() / 24)
+		if days < 1 {
+			days = 1
+		}
+		return fmt.Sprintf("%dd", days)
+	}
+}
+
+// Duration formats a positive duration as a short label (e.g. "3m", "2h").
+func Duration(d time.Duration) string {
+	return formatAgo(d)
+}
+
+// EstimateRemaining extrapolates time left from percent-complete and elapsed time.
+// Returns "" when percent is too low/high to estimate.
+func EstimateRemaining(percent float64, startedAt any) string {
+	if percent <= 0 || percent >= 100 {
+		return ""
+	}
+	started, ok := parseTime(startedAt)
+	if !ok {
+		return ""
+	}
+	elapsed := time.Since(started)
+	if elapsed < time.Second {
+		return ""
+	}
+	remaining := time.Duration(float64(elapsed) * (100 - percent) / percent)
+	if remaining < time.Second {
+		return ""
+	}
+	return "~" + formatAgo(remaining) + " remaining"
 }
 
 // Boolish prefers the first non-nil bool-like value; missing values are "false".

@@ -3,6 +3,7 @@ package httpx
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -40,7 +41,7 @@ func New(profile config.Profile, creds config.Creds) *Client {
 }
 
 func (c *Client) portalBearer() string {
-	// Personal tokens (preferred) work on cloud and OEM portal.
+	// Personal access tokens (preferred) work on cloud and OEM portal.
 	if c.APIToken != "" {
 		return c.APIToken
 	}
@@ -58,6 +59,38 @@ func (e *APIError) Error() string {
 		return fmt.Sprintf("HTTP %d: %s", e.Status, e.Message)
 	}
 	return fmt.Sprintf("HTTP %d: %s", e.Status, truncate(e.Body, 200))
+}
+
+// IsConnectionError reports transport failures (dial/timeout/DNS), not HTTP responses.
+func IsConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var apiErr *APIError
+	return !errors.As(err, &apiErr)
+}
+
+// IsAuthError reports HTTP 401/403 responses from the portal.
+func IsAuthError(err error) bool {
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.Status == http.StatusUnauthorized || apiErr.Status == http.StatusForbidden
+}
+
+// ClassifyWhoAmIError maps whoami failures to user-facing auth/connect errors.
+func ClassifyWhoAmIError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if IsConnectionError(err) {
+		return fmt.Errorf("failed to connect")
+	}
+	if IsAuthError(err) {
+		return fmt.Errorf("authentication expired, please login again")
+	}
+	return fmt.Errorf("failed to connect")
 }
 
 func truncate(s string, n int) string {
@@ -117,6 +150,82 @@ func (c *Client) PortalJSON(method, path string, in, out any) error {
 	return c.doJSON(method, u, c.portalBearer(), in, out)
 }
 
+// DefaultListPageSize matches the portal API max page size for cells/jobs.
+const DefaultListPageSize = 200
+
+func withLimitOffset(path string, limit, offset int) string {
+	sep := "?"
+	if strings.Contains(path, "?") {
+		sep = "&"
+	}
+	return fmt.Sprintf("%s%slimit=%d&offset=%d", path, sep, limit, offset)
+}
+
+func paginationTotal(page map[string]any) int {
+	pag, _ := page["pagination"].(map[string]any)
+	if pag == nil {
+		return 0
+	}
+	switch v := pag["total"].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case int64:
+		return int(v)
+	default:
+		return 0
+	}
+}
+
+func extractPageItems(page map[string]any, listKey string) []any {
+	if page == nil {
+		return nil
+	}
+	if arr, ok := page[listKey].([]any); ok {
+		return arr
+	}
+	return nil
+}
+
+// PortalListAll fetches every page of a limit/offset list endpoint and returns
+// the combined items under listKey. Tables should print the full set in one go.
+func (c *Client) PortalListAll(path, listKey string, pageSize int) (map[string]any, []any, error) {
+	if pageSize <= 0 {
+		pageSize = DefaultListPageSize
+	}
+	var all []any
+	offset := 0
+	for {
+		var page map[string]any
+		if err := c.PortalJSON("GET", withLimitOffset(path, pageSize, offset), nil, &page); err != nil {
+			return nil, nil, err
+		}
+		items := extractPageItems(page, listKey)
+		all = append(all, items...)
+		total := paginationTotal(page)
+		if len(items) == 0 {
+			break
+		}
+		if total > 0 && len(all) >= total {
+			break
+		}
+		if len(items) < pageSize {
+			break
+		}
+		offset += pageSize
+	}
+	out := map[string]any{
+		listKey: all,
+		"pagination": map[string]any{
+			"limit":  len(all),
+			"offset": 0,
+			"total":  len(all),
+		},
+	}
+	return out, all, nil
+}
+
 func (c *Client) PortalJSONPublic(method, path string, in, out any) error {
 	u := c.PortalURL + "/api/portal" + path
 	return c.doJSON(method, u, "", in, out)
@@ -167,10 +276,10 @@ func (c *Client) Login(username, password string) (tokenID string, user map[stri
 	return out.Token.ID, out.User, nil
 }
 
-func (c *Client) IssuePersonalToken(machineID, machineLabel string) (tokenID string, user map[string]any, err error) {
-	body := map[string]any{"machine_id": machineID}
+func (c *Client) IssuePersonalAccessToken(machineID, machineLabel string) (tokenID string, user map[string]any, err error) {
+	body := map[string]any{"machineId": machineID}
 	if machineLabel != "" {
-		body["machine_label"] = machineLabel
+		body["machineLabel"] = machineLabel
 	}
 	var out struct {
 		Token struct {
@@ -178,7 +287,7 @@ func (c *Client) IssuePersonalToken(machineID, machineLabel string) (tokenID str
 		} `json:"token"`
 		User map[string]any `json:"user"`
 	}
-	err = c.PortalJSON("POST", "/v1/auth/personal-token", body, &out)
+	err = c.PortalJSON("POST", "/v1/auth/personal-access-token", body, &out)
 	if err != nil {
 		return "", nil, err
 	}
@@ -190,37 +299,38 @@ func (c *Client) Logout() error {
 }
 
 type DeviceCodeStart struct {
-	DeviceCode              string `json:"device_code"`
-	UserCode                string `json:"user_code"`
-	VerificationURI         string `json:"verification_uri"`
-	VerificationURIComplete string `json:"verification_uri_complete"`
-	ExpiresIn               int    `json:"expires_in"`
+	DeviceCode              string `json:"deviceCode"`
+	UserCode                string `json:"userCode"`
+	VerificationURI         string `json:"verificationUri"`
+	VerificationURIComplete string `json:"verificationUriComplete"`
+	ExpiresIn               int    `json:"expiresIn"`
 	Interval                int    `json:"interval"`
 }
 
 func (c *Client) StartDeviceAuth(machineID, machineLabel string) (*DeviceCodeStart, error) {
-	// Do not send portal_base_url: the server uses email.baseUri (SPA origin).
-	body := map[string]any{"machine_id": machineID}
+	body := map[string]any{
+		"machineId":     machineID,
+		"portalBaseUrl": c.PortalURL,
+	}
 	if machineLabel != "" {
-		body["machine_label"] = machineLabel
+		body["machineLabel"] = machineLabel
 	}
 	var out DeviceCodeStart
 	err := c.PortalJSONPublic("POST", "/v1/auth/device/code", body, &out)
 	if err != nil {
 		return nil, err
 	}
-	if out.VerificationURIComplete == "" && out.UserCode != "" {
-		base := out.VerificationURI
-		if base == "" || strings.HasPrefix(base, "/") {
-			base = c.PortalURL + "/device"
-		}
+	// Always open the device page on this profile's portal URL. Older OEM
+	// portals ignore portalBaseUrl and return email.baseUri (often :5173).
+	if out.UserCode != "" {
 		q := url.Values{}
-		q.Set("user_code", out.UserCode)
-		q.Set("machine_id", machineID)
+		q.Set("userCode", out.UserCode)
+		q.Set("machineId", machineID)
 		if machineLabel != "" {
-			q.Set("machine_label", machineLabel)
+			q.Set("machineLabel", machineLabel)
 		}
-		out.VerificationURIComplete = base + "?" + q.Encode()
+		out.VerificationURI = strings.TrimRight(c.PortalURL, "/") + "/device"
+		out.VerificationURIComplete = out.VerificationURI + "?" + q.Encode()
 	}
 	if out.Interval <= 0 {
 		out.Interval = 5
@@ -237,7 +347,7 @@ func (c *Client) PollDeviceAuth(deviceCode string) (status string, tokenID strin
 		User map[string]any `json:"user"`
 	}
 	err = c.PortalJSONPublic("POST", "/v1/auth/device/token", map[string]string{
-		"device_code": deviceCode,
+		"deviceCode": deviceCode,
 	}, &out)
 	if err != nil {
 		return "", "", nil, err

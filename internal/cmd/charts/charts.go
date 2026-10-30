@@ -8,21 +8,27 @@ import (
 
 func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "charts",
-		Short: "Manage chart uploads and custom cells",
+		Use:     "charts",
+		Aliases: []string{"chart"},
+		Short:   "Manage chart uploads and custom cells",
 	}
-	cmd.AddCommand(newUploadCmd(factory))
 	cmd.AddCommand(newUploadsCmd(factory))
 	cmd.AddCommand(newCellsCmd(factory))
 	cmd.AddCommand(newPermitCmd(factory))
 	return cmd
 }
 
-func newUploadCmd(factory cli.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "upload <file>",
-		Short: "Upload a chart file for ingestion",
-		Args:  cobra.ExactArgs(1),
+func newUploadsCmd(factory cli.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "uploads",
+		Aliases: []string{"upload"},
+		Short:   "Create, list, get, or delete chart uploads",
+	}
+	cmd.AddCommand(&cobra.Command{
+		Use:     "create <file>",
+		Aliases: []string{"add"},
+		Short:   "Upload a chart file for ingestion",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, _, client, err := factory(true)
 			if err != nil {
@@ -37,14 +43,7 @@ func newUploadCmd(factory cli.Factory) *cobra.Command {
 				return nil
 			})
 		},
-	}
-}
-
-func newUploadsCmd(factory cli.Factory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "uploads",
-		Short: "List, get, or delete chart uploads",
-	}
+	})
 	cmd.AddCommand(&cobra.Command{
 		Use:   "list",
 		Short: "List uploads",
@@ -53,12 +52,11 @@ func newUploadsCmd(factory cli.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var out any
-			if err := client.PortalJSON("GET", "/v1/charts/uploads", nil, &out); err != nil {
+			out, items, err := client.PortalListAll("/v1/charts/uploads", "uploads", 200)
+			if err != nil {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
-				items := output.ExtractList(out, "uploads", "data")
 				rows := make([][]string, 0, len(items))
 				for _, item := range items {
 					m, _ := item.(map[string]any)
@@ -66,7 +64,7 @@ func newUploadsCmd(factory cli.Factory) *cobra.Command {
 						output.Str(m["id"]),
 						output.Str(m["filename"]),
 						output.Str(m["status"]),
-						output.Str(m["createdAt"]),
+						output.Time(m["createdAt"]),
 					})
 				}
 				return output.Table([]string{"ID", "FILENAME", "STATUS", "CREATED"}, rows)
@@ -123,12 +121,11 @@ func newCellsCmd(factory cli.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var out any
-			if err := client.PortalJSON("GET", "/v1/charts/listCustomCells", nil, &out); err != nil {
+			out, items, err := client.PortalListAll("/v1/charts/listCustomCells", "cells", 200)
+			if err != nil {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
-				items := output.ExtractList(out, "cells", "data")
 				rows := make([][]string, 0, len(items))
 				for _, item := range items {
 					m, _ := item.(map[string]any)
@@ -214,19 +211,16 @@ func newPermitCmd(factory cli.Factory) *cobra.Command {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
+				permitID := ""
 				switch v := out.(type) {
 				case string:
-					output.Println(v)
+					permitID = v
 				case map[string]any:
-					if p, ok := v["permit"].(string); ok {
-						output.Println(p)
-						return nil
-					}
-					return output.JSON(v)
+					permitID = output.Str(output.FirstNonEmpty(v["permitId"], v["permit"], v["id"]))
 				default:
-					output.Println(output.Str(out))
+					permitID = output.Str(out)
 				}
-				return nil
+				return output.Table([]string{"PERMIT"}, [][]string{{permitID}})
 			})
 		},
 	}

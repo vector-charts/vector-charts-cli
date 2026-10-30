@@ -238,6 +238,7 @@ func newShowCmd(factory cli.Factory) *cobra.Command {
 				"url":           p.URL,
 				"api_url":       p.APIURL,
 				"type":          p.Type,
+				"last_seen":     p.LastSeen,
 				"current":       name == cfg.CurrentProfile,
 				"has_session":   creds.SessionToken != "",
 				"has_api_token": creds.APIToken != "",
@@ -250,6 +251,9 @@ func newShowCmd(factory cli.Factory) *cobra.Command {
 				}
 				if p.Type != "" {
 					output.Printf("type:          %s\n", p.Type)
+				}
+				if p.LastSeen != "" {
+					output.Printf("last_seen:     %s\n", p.LastSeen)
 				}
 				output.Printf("current:       %v\n", name == cfg.CurrentProfile)
 				output.Printf("has_session:   %v\n", creds.SessionToken != "")
@@ -267,6 +271,8 @@ type probeResult struct {
 	API       string `json:"api"`
 	PortalOK  bool   `json:"portal_ok"`
 	APIOK     bool   `json:"api_ok"`
+	Status    string `json:"status"`
+	LastSeen  string `json:"last_seen,omitempty"`
 	Auth      string `json:"auth"`
 	User      string `json:"user,omitempty"`
 	APIMode   string `json:"api_mode,omitempty"`
@@ -278,11 +284,12 @@ func probeProfile(name string, p config.Profile, creds config.Creds) probeResult
 	p = p.Normalized()
 	client := httpx.New(p, creds)
 	res := probeResult{
-		Name:   name,
-		Type:   p.Type,
-		Portal: p.URL,
-		API:    p.APIURL,
-		Auth:   "none",
+		Name:     name,
+		Type:     p.Type,
+		Portal:   p.URL,
+		API:      p.APIURL,
+		LastSeen: p.LastSeen,
+		Auth:     "none",
 	}
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -314,6 +321,12 @@ func probeProfile(name string, p config.Profile, creds config.Creds) probeResult
 		}
 	}()
 	wg.Wait()
+
+	online := res.PortalOK || res.APIOK
+	if online {
+		res.LastSeen = time.Now().UTC().Format(time.RFC3339)
+	}
+	res.Status = config.FormatReachability(online, res.LastSeen)
 
 	if creds.SessionToken != "" || creds.APIToken != "" {
 		user, err := client.WhoAmI()
@@ -357,6 +370,13 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 			}
 			wg.Wait()
 
+			for _, r := range results {
+				if r.PortalOK || r.APIOK {
+					cfg.MarkSeen(r.Name)
+				}
+			}
+			_ = config.Save(cfg)
+
 			return output.PrintJSONOr(results, func() error {
 				rows := make([][]string, 0, len(results))
 				for _, r := range results {
@@ -366,29 +386,57 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 					}
 					rows = append(rows, []string{
 						mark,
-						r.Type,
 						r.Portal,
-						r.API,
-						boolStr(r.PortalOK),
-						boolStr(r.APIOK),
-						r.Auth,
-						r.User,
+						colorStatus(r.Status, r.PortalOK || r.APIOK),
 					})
 				}
-				return output.Table(
-					[]string{"NAME", "TYPE", "PORTAL", "API", "PORTAL_OK", "API_OK", "AUTH", "USER"},
-					rows,
-				)
+				return output.Table(nil, rows)
 			})
 		},
 	}
 }
 
-func boolStr(v bool) string {
-	if v {
-		return "yes"
+func colorStatus(status string, online bool) string {
+	if online {
+		return output.Green(status)
 	}
-	return "no"
+	return output.Red(status)
+}
+
+func statusLines(res probeResult) string {
+	lines := []string{colorStatus(res.Status, res.PortalOK || res.APIOK)}
+	if res.Type != "" {
+		lines = append(lines, output.PaleGrey(res.Type))
+	}
+	if res.PortalOK {
+		lines = append(lines, output.PaleGrey("portal ok"))
+	} else if res.PortalErr != "" {
+		lines = append(lines, output.PaleGrey("portal: "+res.PortalErr))
+	} else {
+		lines = append(lines, output.PaleGrey("portal down"))
+	}
+	if res.APIOK {
+		api := "api ok"
+		if res.APIMode != "" && res.APIMode != res.Type {
+			api += " (" + res.APIMode + ")"
+		}
+		lines = append(lines, output.PaleGrey(api))
+	} else if res.APIErr != "" {
+		lines = append(lines, output.PaleGrey("api: "+res.APIErr))
+	} else {
+		lines = append(lines, output.PaleGrey("api down"))
+	}
+	switch res.Auth {
+	case "ok":
+		if res.User != "" {
+			lines = append(lines, output.PaleGrey("logged in as "+res.User))
+		} else {
+			lines = append(lines, output.PaleGrey("auth ok"))
+		}
+	case "failed":
+		lines = append(lines, output.PaleGrey("auth failed"))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func newStatusCmd(factory cli.Factory) *cobra.Command {
@@ -396,30 +444,16 @@ func newStatusCmd(factory cli.Factory) *cobra.Command {
 		Use:   "status",
 		Short: "Probe connectivity for the current profile",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, p, creds, _, err := factory(true)
+			name, p, creds, _, err := factory(false)
 			if err != nil {
 				return err
 			}
 			res := probeProfile(name, p, creds)
+			if res.PortalOK || res.APIOK {
+				_ = config.TouchLastSeen(name)
+			}
 			errOut := output.PrintJSONOr(res, func() error {
-				output.Printf("profile:    %s\n", res.Name)
-				output.Printf("type:       %s\n", res.Type)
-				output.Printf("portal_ok:  %v\n", res.PortalOK)
-				output.Printf("api_ok:     %v\n", res.APIOK)
-				if res.APIMode != "" {
-					output.Printf("api_mode:   %s\n", res.APIMode)
-				}
-				output.Printf("auth:       %s\n", res.Auth)
-				if res.User != "" {
-					output.Printf("user:       %s\n", res.User)
-				}
-				if res.PortalErr != "" {
-					output.Printf("portal_err: %s\n", res.PortalErr)
-				}
-				if res.APIErr != "" {
-					output.Printf("api_err:    %s\n", res.APIErr)
-				}
-				return nil
+				return output.Table(nil, [][]string{{res.Name, statusLines(res)}})
 			})
 			if !res.PortalOK || !res.APIOK {
 				return fmt.Errorf("one or more health checks failed")
@@ -460,7 +494,7 @@ func newLogoutCmd(factory cli.Factory) *cobra.Command {
 		Use:   "logout",
 		Short: "Clear cached CLI credentials for the current profile",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, _, creds, client, err := factory(true)
+			name, _, creds, client, err := factory(false)
 			if err != nil {
 				return err
 			}
@@ -483,9 +517,9 @@ func newLoginCmd(factory cli.Factory) *cobra.Command {
 	var tokenFlag, username string
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Authenticate with a Personal Token (device browser flow, --token, or --username)",
+		Short: "Authenticate with a Personal Access Token (device browser flow, --token, or --username)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, p, creds, client, err := factory(true)
+			name, p, creds, client, err := factory(false)
 			if err != nil {
 				return err
 			}
@@ -499,16 +533,15 @@ func newLoginCmd(factory cli.Factory) *cobra.Command {
 			}
 			machineLabel := machineid.Label()
 
-			if tokenFlag == "" && username == "" && creds.APIToken != "" && creds.MachineID == machineID {
-				client.APIToken = creds.APIToken
-				client.Session = ""
-				user, err := client.WhoAmI()
-				if err == nil {
-					if err := cli.PersistLogin(name, p.URL, creds.APIToken, machineID, user); err != nil {
-						return err
+			// Always probe existing credentials first when present. Connection
+			// failures abort; expired auth is reported but login continues so
+			// re-login always works even when already logged in.
+			if creds.APIToken != "" || creds.SessionToken != "" {
+				if _, err := client.WhoAmI(); err != nil {
+					if httpx.IsConnectionError(err) {
+						return fmt.Errorf("failed to connect")
 					}
-					output.Printf("Already logged in to profile %q as %v (reusing Personal Token)\n", name, user["username"])
-					return nil
+					output.Errf("authentication expired, please login again\n")
 				}
 			}
 
@@ -537,9 +570,9 @@ func newLoginCmd(factory cli.Factory) *cobra.Command {
 				}
 				client.Session = sessionID
 				client.APIToken = ""
-				personalID, user, err := client.IssuePersonalToken(machineID, machineLabel)
+				personalID, user, err := client.IssuePersonalAccessToken(machineID, machineLabel)
 				if err != nil {
-					return fmt.Errorf("personal token: %w", err)
+					return fmt.Errorf("personal access token: %w", err)
 				}
 				if err := cli.PersistLogin(name, p.URL, personalID, machineID, user); err != nil {
 					return err
@@ -552,7 +585,7 @@ func newLoginCmd(factory cli.Factory) *cobra.Command {
 			return deviceLogin(name, p.URL, client, machineID, machineLabel)
 		},
 	}
-	cmd.Flags().StringVar(&tokenFlag, "token", "", "Personal Token (or legacy session / OEM API token)")
+	cmd.Flags().StringVar(&tokenFlag, "token", "", "Personal Access Token (or legacy session / OEM API token)")
 	cmd.Flags().StringVar(&username, "username", "", "Portal username/email for password login")
 	return cmd
 }
@@ -583,6 +616,9 @@ func deviceLogin(name, portalURL string, client *httpx.Client, machineID, machin
 		}
 		if status == "pending" {
 			continue
+		}
+		if status == "denied" {
+			return fmt.Errorf("authorization denied")
 		}
 		if status == "complete" && tokenID != "" {
 			if err := cli.PersistLogin(name, portalURL, tokenID, machineID, user); err != nil {

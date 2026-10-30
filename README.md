@@ -48,18 +48,18 @@ vc server login          # opens browser device flow
 vc server discover       # find instances on the LAN (UDP multicast)
 vc server list           # connectivity + auth probe
 vc server whoami
-vc charts upload ./chart.zip
+vc charts uploads create ./chart.zip
 vc charts cells list
 vc permits list
 vc store list
 vc store enable au
-vc token list
+vc tokens list
 vc jobs status
 ```
 
 Config lives under `~/.vector-charts/`:
 
-- `config.yml` — profiles (`url`; `type` / `api_url` filled after login)
+- `config.yml` — profiles (`url`; `type` / `api_url` filled after login; `last_seen` updated on successful contact)
 - `credentials.yml` — session / API tokens (mode 0600)
 
 Override with `VECTOR_CHARTS_HOME`.
@@ -71,23 +71,40 @@ If `--profile` is omitted: the sole profile is used when only one exists, else `
 | Group | Purpose |
 |-------|---------|
 | `vc server` | Profiles, login/logout, connectivity |
-| `vc token` | Portal API token CRUD |
-| `vc charts` | Upload / uploads / cells / S-63 user permit |
+| `vc tokens` | Portal API token CRUD (`token` alias) |
+| `vc charts` | Uploads / cells / S-63 user permit (`chart` alias) |
 | `vc permits` | List licenses and S-63 cell permits (`licenses` alias) |
 | `vc store` | Chart store subscriptions: list / enable / disable (`subscriptions` alias) |
 | `vc jobs` | List jobs and status snapshot |
 
-Global flags: `--profile`, `--format` / `-f` `table|json|plaintext` (`-o` alias), `--url`.
+Global flags: `--profile`, `--format` / `-f` `table|json` (`-o` alias), `--url`.
 
-- `table` — aligned columns with a header rule (default)
+- `table` — aligned columns (default)
 - `json` — indented JSON
-- `plaintext` — tab-separated values
 
 ## Development
 
 ```bash
 go build -o vc ./cmd/vc
 go test ./...
+```
+
+### Dev symlink
+
+To run the repo binary as `vc` without copying into `/usr/local/bin` on every rebuild, symlink it onto your `PATH`:
+
+```bash
+go build -o vc ./cmd/vc
+sudo ln -sf "$(pwd)/vc" /usr/local/bin/vc
+```
+
+Rebuild with `go build -o vc ./cmd/vc` and the same `vc` on your `PATH` picks up the new binary. Remove the symlink (or replace it with a release install) when you are done developing.
+
+If `/usr/local/bin` is not writable, use a user-local directory on your `PATH` instead:
+
+```bash
+mkdir -p "$HOME/.local/bin"
+ln -sf "$(pwd)/vc" "$HOME/.local/bin/vc"
 ```
 
 Interactive login requires portal device-auth endpoints (`POST /api/portal/v1/auth/device/*`) and the SPA `/device` page.

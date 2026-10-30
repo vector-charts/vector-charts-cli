@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -35,7 +36,7 @@ func NewRoot() *cobra.Command {
 	}
 
 	root.PersistentFlags().StringVar(&profile, "profile", "", "Profile name (default: sole profile, current_profile, or \"default\")")
-	root.PersistentFlags().StringVarP(&outputFmt, "format", "f", "table", "Output format: table|json|plaintext")
+	root.PersistentFlags().StringVarP(&outputFmt, "format", "f", "table", "Output format: table|json")
 	root.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Alias for --format")
 	root.PersistentFlags().StringVar(&urlFlag, "url", "", "Override portal URL for this invocation")
 
@@ -50,7 +51,7 @@ func NewRoot() *cobra.Command {
 	return root
 }
 
-func ResolveClient(requireProfile bool) (string, config.Profile, config.Creds, *httpx.Client, error) {
+func ResolveClient(requireAuth bool) (string, config.Profile, config.Creds, *httpx.Client, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return "", config.Profile{}, config.Creds{}, nil, err
@@ -97,7 +98,18 @@ func ResolveClient(requireProfile bool) (string, config.Profile, config.Creds, *
 	if name != "(override)" {
 		creds = credsFile.Profiles[name]
 	}
+	output.Connecting(name)
 	client := httpx.New(p, creds)
+
+	if requireAuth {
+		if creds.APIToken == "" && creds.SessionToken == "" {
+			return "", config.Profile{}, config.Creds{}, nil, fmt.Errorf("authentication expired, please login again")
+		}
+		if _, err := client.WhoAmI(); err != nil {
+			return "", config.Profile{}, config.Creds{}, nil, httpx.ClassifyWhoAmIError(err)
+		}
+	}
+
 	return name, p, creds, client, nil
 }
 

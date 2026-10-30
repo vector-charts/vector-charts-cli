@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSaveLoadRoundTrip(t *testing.T) {
@@ -122,6 +123,65 @@ func TestResolveDefaults(t *testing.T) {
 	name, p, err = multi.Resolve("")
 	if err != nil || name != "b" || p.URL != "http://b.example" {
 		t.Fatalf("current_profile: name=%q p=%+v err=%v", name, p, err)
+	}
+}
+
+func TestLastSeenRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("VECTOR_CHARTS_HOME", dir)
+
+	seen := time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
+	f := &File{
+		CurrentProfile: "local",
+		Profiles: map[string]Profile{
+			"local": {
+				URL:      "http://localhost:9909",
+				LastSeen: seen,
+			},
+		},
+	}
+	if err := Save(f); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Profiles["local"].LastSeen != seen {
+		t.Fatalf("last_seen=%q want %q", loaded.Profiles["local"].LastSeen, seen)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.MarkSeen("local")
+	if err := Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Profiles["local"].LastSeen == "" || loaded.Profiles["local"].LastSeen == seen {
+		t.Fatalf("MarkSeen did not update last_seen: %q", loaded.Profiles["local"].LastSeen)
+	}
+}
+
+func TestFormatReachability(t *testing.T) {
+	if got := FormatReachability(true, ""); got != "online" {
+		t.Fatalf("online: %q", got)
+	}
+	if got := FormatReachability(false, ""); got != "offline" {
+		t.Fatalf("never seen: %q", got)
+	}
+	past := time.Now().UTC().Add(-90 * time.Minute).Format(time.RFC3339)
+	got := FormatReachability(false, past)
+	if !strings.HasPrefix(got, "offline, last seen ") || !strings.HasSuffix(got, " ago") {
+		t.Fatalf("offline with last seen: %q", got)
+	}
+	if !strings.Contains(got, "1h") {
+		t.Fatalf("expected ~1h ago, got %q", got)
 	}
 }
 
