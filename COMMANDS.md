@@ -70,9 +70,9 @@ Show the authenticated portal user. Requires auth.
 
 Authenticate against the current profile. Modes:
 
-1. **Device browser flow** (default) — opens a verification URL and waits for approval.
-2. **`--token`** — Personal Access Token (or legacy session / OEM API token).
-3. **`--username`** — username/email + interactive password prompt.
+1. **Device browser flow** (default) - opens a verification URL and waits for approval.
+2. **`--token`** - Personal Access Token (or legacy session / OEM API token).
+3. **`--username`** - username/email + interactive password prompt.
 
 | Flag | Description |
 |------|-------------|
@@ -351,14 +351,6 @@ Generate the autocompletion script for bash.
 #### `vc cli completion zsh`
 
 Generate the autocompletion script for zsh.
-
-#### `vc cli completion fish`
-
-Generate the autocompletion script for fish.
-
-#### `vc cli completion powershell`
-
-Generate the autocompletion script for powershell.
 
 ```bash
 vc cli completion bash

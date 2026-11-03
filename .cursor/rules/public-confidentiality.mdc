@@ -1,0 +1,19 @@
+---
+description: No internal Vector Charts/Zydro, customer, user, or competitor references without explicit developer confirmation
+alwaysApply: true
+---
+
+# Public-repo confidentiality
+
+This repository is public. Do not reference anything internal to the Vector Charts or Zydro platforms, their customers, users, or competitors, unless a developer explicitly confirms it is allowed.
+
+Allowed without confirmation: essential public API surface the CLI must call or document (public endpoints, request/response fields the CLI uses, install URLs, and user-facing product names).
+
+Forbidden without explicit confirmation:
+
+- Internal service, environment, hostname, or infra names
+- Non-public architecture, roadmaps, or APIs
+- Customer, user, or competitor identities/names
+- Private emails or non-essential company/org internals
+
+If unsure whether something is essential public API surface, ask before adding it.

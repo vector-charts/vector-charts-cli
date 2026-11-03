@@ -39,4 +39,16 @@ docs: document nix develop workflow
 
 ## Comments and prose
 
-Never use em dashes anywhere in code, comments, docs, or commit messages; prefer plain hyphens or rephrase. Prefer no comments; when needed, keep them short and only explain non-obvious intent. Never comment that something is missing, removed, unfinished, or changed (no "not implemented", "formerly X", "removed Y", TODOs about absent behavior, etc.).
+Prefer no comments; when needed, keep them short and only explain non-obvious intent. Never comment that something is missing, removed, unfinished, or changed (no "not implemented", "formerly X", "removed Y", TODOs about absent behavior, etc.).
+
+## ASCII only
+
+Use basic ASCII only (bytes 0x00-0x7F) in code, comments, docs, commit messages, and user-facing strings. Do not use arrows, em/en dashes, ellipses, smart quotes, or other Unicode punctuation; write `->`, `-`, `...`, and straight quotes instead. Exception: existing TUI box-drawing characters in `internal/output` table rendering only; do not add new non-ASCII elsewhere.
+
+## Public-repo confidentiality
+
+This repository is public. Do not reference anything internal to the Vector Charts or Zydro platforms, their customers, users, or competitors, unless a developer explicitly confirms it is allowed. The only exception is essential public API surface the CLI must call or document (public endpoints, request/response fields the CLI uses, install URLs, and user-facing product names). Forbidden without explicit confirmation: internal service names, env names, hostnames, infra, architecture details, roadmaps, non-public APIs, customer or user identities, competitor names, private emails, and any non-essential company/org internals.
+
+## Command documentation sync
+
+When adding, removing, renaming, or changing CLI commands or flags, keep command documentation in sync in the same change: update `COMMANDS.md`, and update the Command groups table (and any Quick start examples) in `README.md` when groups or representative examples change.

@@ -1,4 +1,4 @@
-module github.com/zydro-marine/vector-charts-cli
+module github.com/vector-charts/vector-charts-cli
 
 go 1.25.1
 

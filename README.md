@@ -1,26 +1,36 @@
 # Vector Charts CLI (`vc`)
 
-The Vector Charts CLI is a tool to interface & manage instances of [Vector Charts](https://vectorcharts.com/), a nautical chart & geospatial data platform. The CLI interfaces with the Vector Charts control plane in order to speed up common tasks such as chart & upload file management and job monitoring.
+[![Build Status](https://github.com/vector-charts/vector-charts-cli/workflows/ci/badge.svg)](https://github.com/vector-charts/vector-charts-cli/actions?query=workflow%3Aci)
 
-In addition to being a useful utility, this project serves as an example of how to interact with Vector Charts software programmatically.
+`vc` is a tool to control & monitor instances of [Vector Charts](https://vectorcharts.com/), a nautical chart & geospatial data platform. The CLI interfaces with the Vector Charts control plane in order to speed up common tasks such as chart & upload file management and job monitoring. In addition to being a useful utility, this project serves as an example of how to interact with Vector Charts software programmatically.
+
+- [Requirements](https://github.com/vector-charts/vector-charts-cli#requirements)
+- [Install](https://github.com/vector-charts/vector-charts-cli#install)
+- [Quick start](https://github.com/vector-charts/vector-charts-cli#quick-start)
+- [Command groups](https://github.com/vector-charts/vector-charts-cli#command-groups)
+- [Shell completion](https://github.com/vector-charts/vector-charts-cli#shell-completion)
+- [Development](https://github.com/vector-charts/vector-charts-cli#development)
+
+## Requirements
+
+- A Vector Charts Cloud account, or a locally-hosted Vector Charts OEM instance
+- Linux or macOS (`x86_64` and `aarch64` are supported)
 
 ## Install
 
-### Convenience script
+Install with the convenience script:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vector-charts/vector-charts-cli/main/scripts/install.sh | bash
 ```
 
-### Debian / Ubuntu
-
-Download the `.deb` from [Releases](https://github.com/vector-charts/vector-charts-cli/releases) and install:
+On Debian / Ubuntu, download the `.deb` from [Releases](https://github.com/vector-charts/vector-charts-cli/releases) and install:
 
 ```bash
 sudo dpkg -i vc_*.deb
 ```
 
-### Nix
+With Nix:
 
 ```bash
 nix profile install github:vector-charts/vector-charts-cli
@@ -28,7 +38,7 @@ nix profile install github:vector-charts/vector-charts-cli
 nix run github:vector-charts/vector-charts-cli -- version
 ```
 
-### From source
+From source:
 
 ```bash
 go build -o build/vc ./cmd/vc
@@ -37,9 +47,11 @@ sudo install -m 755 build/vc /usr/local/bin/vc
 
 ## Quick start
 
+### Manage server connections
+
+Profiles only need a portal URL. Cloud vs OEM and the tile API host are resolved automatically after login (from `account.planInstance`).
+
 ```bash
-# Profiles only need a portal URL. Cloud vs OEM and the tile API host
-# are resolved automatically after login (from account.planInstance).
 vc server add https://cloud.vectorcharts.com
 vc server add local-oem http://localhost:9909
 
@@ -50,24 +62,25 @@ vc server login          # opens browser device flow
 vc server discover       # find instances on the LAN (UDP multicast)
 vc server list           # connectivity + auth probe
 vc server whoami
-vc upload create ./chart.zip
-vc chart list
-vc permit show-s63-user-permit
-vc license list
-vc store list
-vc store enable au
-vc token list
-vc job status
 ```
 
 Config lives under `~/.vector-charts/`:
 
-- `config.yml` — profiles (`url`; `type` / `api_url` filled after login; `last_seen` updated on successful contact)
-- `credentials.yml` — session / API tokens (mode 0600)
+- `config.yml` - profiles (`url`; `type` / `api_url` filled after login; `last_seen` updated on successful contact)
+- `credentials.yml` - session / API tokens (mode 0600)
 
 Override with `VECTOR_CHARTS_HOME`.
 
 If `--profile` is omitted: the sole profile is used when only one exists, else `current_profile`, else `default`. URL may be positional on `vc server add` (`vc server add [name] <url>`).
+
+### Examples
+
+```bash
+vc upload create ./chart.zip
+vc chart list
+vc store enable au
+vc job status
+```
 
 ## Command groups
 
@@ -83,10 +96,12 @@ If `--profile` is omitted: the sole profile is used when only one exists, else `
 | `vc job` | List jobs and status snapshot |
 | `vc cli` | CLI utilities (shell completion) |
 
+Full command reference: [COMMANDS.md](COMMANDS.md).
+
 Global flags: `--profile`, `--format` / `-f` `table|json` (`-o` alias), `--url`.
 
-- `table` — aligned columns (default)
-- `json` — indented JSON
+- `table` - aligned columns (default)
+- `json` - indented JSON
 
 ## Shell completion
 
@@ -113,31 +128,11 @@ vc cli completion bash > "$(brew --prefix)/etc/bash_completion.d/vc"
 # current session
 source <(vc cli completion zsh)
 
-# every new session — write into a directory on your $fpath
+# every new session - write into a directory on your $fpath
 vc cli completion zsh > "${fpath[1]}/_vc"
 ```
 
 If completions do not load, ensure `compinit` runs in your `~/.zshrc`.
-
-### Fish
-
-```fish
-# current session
-vc cli completion fish | source
-
-# every new session
-vc cli completion fish > ~/.config/fish/completions/vc.fish
-```
-
-### PowerShell
-
-```powershell
-# current session
-vc cli completion powershell | Out-String | Invoke-Expression
-
-# every new session — add the line above to your PowerShell profile
-# ($PROFILE), or write the script to a file and dot-source it from there
-```
 
 Start a new shell after installing permanent completions.
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/zydro-marine/vector-charts-cli/internal/output"
+	"github.com/vector-charts/vector-charts-cli/internal/output"
 	"golang.org/x/term"
 )
 

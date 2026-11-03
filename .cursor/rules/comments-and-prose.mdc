@@ -1,8 +1,8 @@
 ---
-description: No em dashes; prefer minimal comments; never note absent or changed behavior
+description: Prefer minimal comments; never note absent or changed behavior
 alwaysApply: true
 ---
 
 # Comments and prose
 
-Never use em dashes anywhere in code, comments, docs, or commit messages; prefer plain hyphens or rephrase. Prefer no comments; when needed, keep them short and only explain non-obvious intent. Never comment that something is missing, removed, unfinished, or changed (no "not implemented", "formerly X", "removed Y", TODOs about absent behavior, etc.).
+Prefer no comments; when needed, keep them short and only explain non-obvious intent. Never comment that something is missing, removed, unfinished, or changed (no "not implemented", "formerly X", "removed Y", TODOs about absent behavior, etc.).

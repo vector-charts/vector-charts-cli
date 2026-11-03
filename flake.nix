@@ -11,7 +11,6 @@
       let
         pkgs = import nixpkgs {
           inherit system;
-          config.allowUnfree = true;
         };
         version = "0.1.0";
       in {
@@ -23,13 +22,13 @@
           subPackages = [ "cmd/vc" ];
           ldflags = [
             "-s" "-w"
-            "-X github.com/zydro-marine/vector-charts-cli/internal/cmd.Version=${version}"
+            "-X github.com/vector-charts/vector-charts-cli/internal/cmd.Version=${version}"
           ];
           env.CGO_ENABLED = "0";
           meta = with pkgs.lib; {
             description = "Vector Charts command-line interface";
             homepage = "https://github.com/vector-charts/vector-charts-cli";
-            license = licenses.unfree;
+            license = licenses.mit;
             mainProgram = "vc";
           };
         };

@@ -294,7 +294,7 @@ func ValidateBaseURL(raw string) (string, error) {
 	if parsed.Host == "" {
 		return "", fmt.Errorf("invalid URL %q: missing host", raw)
 	}
-	// http://localhost/9904 → path looks like a port
+	// http://localhost/9904 -> path looks like a port
 	path := strings.Trim(parsed.Path, "/")
 	if path != "" && !strings.Contains(path, "/") {
 		if _, err := strconv.Atoi(path); err == nil && parsed.Port() == "" {
@@ -312,7 +312,7 @@ func ValidateBaseURL(raw string) (string, error) {
 }
 
 // ApplyWhoAmI sets type + api_url from a portal whoami/login user payload.
-// Cloud responses include account.planInstance (hostname). OEM omits it → same-origin API.
+// Cloud responses include account.planInstance (hostname). OEM omits it -> same-origin API.
 func ApplyWhoAmI(portalURL string, user map[string]any) (typ string, apiURL string) {
 	portalURL = NormalizeURL(portalURL)
 	acct, _ := user["account"].(map[string]any)
@@ -320,7 +320,7 @@ func ApplyWhoAmI(portalURL string, user map[string]any) (typ string, apiURL stri
 	planInstance = strings.TrimSpace(planInstance)
 
 	switch {
-	case planInstance == "" || planInstance == "oem" || planInstance == "api-dev":
+	case planInstance == "" || planInstance == "oem":
 		return TypeOEM, portalURL
 	case strings.Contains(planInstance, "://"):
 		return TypeCloud, NormalizeURL(planInstance)

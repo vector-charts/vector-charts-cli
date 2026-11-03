@@ -13,9 +13,9 @@ import (
 
 	"github.com/jlaffaye/ftp"
 	"github.com/spf13/cobra"
-	"github.com/zydro-marine/vector-charts-cli/internal/cli"
-	"github.com/zydro-marine/vector-charts-cli/internal/httpx"
-	"github.com/zydro-marine/vector-charts-cli/internal/output"
+	"github.com/vector-charts/vector-charts-cli/internal/cli"
+	"github.com/vector-charts/vector-charts-cli/internal/httpx"
+	"github.com/vector-charts/vector-charts-cli/internal/output"
 )
 
 func newFTPSyncCmd(factory cli.Factory) *cobra.Command {
@@ -142,14 +142,14 @@ func runFTPSync(client *httpx.Client, opts ftpSyncOptions) error {
 		return err
 	}
 
-	output.Printf("Fetching existing uploads …\n")
+	output.Printf("Fetching existing uploads...\n")
 	uploadedNames, err := listUploadedFilenames(client)
 	if err != nil {
 		return err
 	}
 	output.Printf("Found %d existing upload filename(s)\n", len(uploadedNames))
 
-	output.Printf("Connecting to %s …\n", endpoint.Addr)
+	output.Printf("Connecting to %s...\n", endpoint.Addr)
 	conn, err := ftp.Dial(endpoint.Addr, ftp.DialWithTimeout(30*time.Second))
 	if err != nil {
 		return fmt.Errorf("ftp dial: %w", err)
@@ -184,7 +184,7 @@ func runFTPSync(client *httpx.Client, opts ftpSyncOptions) error {
 	if opts.Prefix != "" {
 		output.Printf("Filtering remote paths containing %q\n", opts.Prefix)
 	}
-	output.Printf("Scanning FTP tree into %s …\n", dir)
+	output.Printf("Scanning FTP tree into %s...\n", dir)
 	stats, err := downloadFTPTree(conn, dir, uploadedNames, opts.Prefix)
 	if err != nil {
 		return err

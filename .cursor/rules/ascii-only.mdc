@@ -1,0 +1,12 @@
+---
+description: Basic ASCII only in code, comments, docs, and strings
+alwaysApply: true
+---
+
+# ASCII only
+
+Use basic ASCII only (bytes 0x00-0x7F) in code, comments, docs, commit messages, and user-facing strings.
+
+Do not use arrows, em/en dashes, ellipses, smart quotes, or other Unicode punctuation. Prefer `->`, `-`, `...`, and straight quotes.
+
+Exception: existing TUI box-drawing characters in `internal/output` table rendering only. Do not introduce new non-ASCII elsewhere.

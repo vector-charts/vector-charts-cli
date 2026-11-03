@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/zydro-marine/vector-charts-cli/internal/cli"
-	"github.com/zydro-marine/vector-charts-cli/internal/config"
-	"github.com/zydro-marine/vector-charts-cli/internal/discovery"
-	"github.com/zydro-marine/vector-charts-cli/internal/httpx"
-	"github.com/zydro-marine/vector-charts-cli/internal/machineid"
-	"github.com/zydro-marine/vector-charts-cli/internal/output"
+	"github.com/vector-charts/vector-charts-cli/internal/cli"
+	"github.com/vector-charts/vector-charts-cli/internal/config"
+	"github.com/vector-charts/vector-charts-cli/internal/discovery"
+	"github.com/vector-charts/vector-charts-cli/internal/httpx"
+	"github.com/vector-charts/vector-charts-cli/internal/machineid"
+	"github.com/vector-charts/vector-charts-cli/internal/output"
 	"golang.org/x/term"
 )
 
@@ -48,7 +48,7 @@ instances announcing themselves on the LAN (same mechanism as Zeus discovery).
 
 OEM containers typically need host networking for multicast to reach the LAN.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output.Errf("Listening for Vector Charts instances on %s:%d (%ds)…\n", group, port, timeoutSec)
+			output.Errf("Listening for Vector Charts instances on %s:%d (%ds)...\n", group, port, timeoutSec)
 			peers, err := discovery.Listen(group, port, time.Duration(timeoutSec)*time.Second)
 			if err != nil {
 				return err
@@ -144,7 +144,7 @@ If name is omitted, the profile is stored as "default".`,
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			output.Printf("Added profile %q → %s\n", name, validated)
+			output.Printf("Added profile %q -> %s\n", name, validated)
 			return nil
 		},
 	}

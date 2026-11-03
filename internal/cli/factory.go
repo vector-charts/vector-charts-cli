@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zydro-marine/vector-charts-cli/internal/config"
-	"github.com/zydro-marine/vector-charts-cli/internal/httpx"
+	"github.com/vector-charts/vector-charts-cli/internal/config"
+	"github.com/vector-charts/vector-charts-cli/internal/httpx"
 )
 
 // Factory resolves the active profile/client.

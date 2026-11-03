@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zydro-marine/vector-charts-cli/internal/config"
+	"github.com/vector-charts/vector-charts-cli/internal/config"
 )
 
 type Client struct {
@@ -97,7 +97,7 @@ func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	return s[:n] + "..."
 }
 
 func (c *Client) doJSON(method, rawURL, bearer string, in any, out any) error {

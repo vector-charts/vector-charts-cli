@@ -1,6 +1,6 @@
 package main
 
-import "github.com/zydro-marine/vector-charts-cli/internal/cmd"
+import "github.com/vector-charts/vector-charts-cli/internal/cmd"
 
 func main() {
 	cmd.Execute()

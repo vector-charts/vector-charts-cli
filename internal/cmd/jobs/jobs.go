@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zydro-marine/vector-charts-cli/internal/cli"
-	"github.com/zydro-marine/vector-charts-cli/internal/output"
+	"github.com/vector-charts/vector-charts-cli/internal/cli"
+	"github.com/vector-charts/vector-charts-cli/internal/output"
 )
 
 func NewCommand(factory cli.Factory) *cobra.Command {
