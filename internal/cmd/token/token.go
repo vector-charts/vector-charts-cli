@@ -10,7 +10,7 @@ func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "token",
 		Aliases: []string{"tokens"},
-		Short:   "Manage portal API tokens",
+		Short:   "Manage Personal Access Tokens",
 	}
 	cli.HideAliases(cmd)
 	cmd.AddCommand(newListCmd(factory))
@@ -23,7 +23,7 @@ func NewCommand(factory cli.Factory) *cobra.Command {
 func newListCmd(factory cli.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List API tokens",
+		Short: "List Personal Access Tokens",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, _, client, err := factory(true)
 			if err != nil {
@@ -55,7 +55,7 @@ func newCreateCmd(factory cli.Factory) *cobra.Command {
 	var name string
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create an API token",
+		Short: "Create a Personal Access Token",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, _, client, err := factory(true)
 			if err != nil {
@@ -85,7 +85,7 @@ func newUpdateCmd(factory cli.Factory) *cobra.Command {
 	var name string
 	cmd := &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update an API token name",
+		Short: "Update a Personal Access Token name",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, _, client, err := factory(true)
@@ -113,7 +113,7 @@ func newUpdateCmd(factory cli.Factory) *cobra.Command {
 func newDeleteCmd(factory cli.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete an API token",
+		Short: "Delete a Personal Access Token",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, _, client, err := factory(true)

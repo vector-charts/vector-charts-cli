@@ -18,8 +18,8 @@ const (
 	TypeOEM   = "oem"
 )
 
-// Profile is a named portal connection. Users only set URL (the portal).
-// Type and APIURL are filled in after login from whoami / planInstance.
+// Profile is a named connection. Users only set URL.
+// Type and APIURL are filled in after login.
 type Profile struct {
 	URL       string `yaml:"url"`
 	PortalURL string `yaml:"portal_url,omitempty"` // legacy alias for url
@@ -246,11 +246,23 @@ func FormatReachability(online bool, lastSeenRFC3339 string) string {
 	if lastSeenRFC3339 == "" {
 		return "offline"
 	}
-	t, err := time.Parse(time.RFC3339, lastSeenRFC3339)
-	if err != nil {
+	ago := FormatLastSeen(lastSeenRFC3339)
+	if ago == "" {
 		return "offline"
 	}
-	return "offline, last seen " + formatAgo(time.Since(t)) + " ago"
+	return "offline, last seen " + ago
+}
+
+// FormatLastSeen returns a relative "Nd ago" string for an RFC3339 timestamp.
+func FormatLastSeen(lastSeenRFC3339 string) string {
+	if lastSeenRFC3339 == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339, lastSeenRFC3339)
+	if err != nil {
+		return ""
+	}
+	return formatAgo(time.Since(t)) + " ago"
 }
 
 func formatAgo(d time.Duration) string {
@@ -311,8 +323,7 @@ func ValidateBaseURL(raw string) (string, error) {
 	return NormalizeURL(fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)), nil
 }
 
-// ApplyWhoAmI sets type + api_url from a portal whoami/login user payload.
-// Cloud responses include account.planInstance (hostname). OEM omits it -> same-origin API.
+// ApplyWhoAmI sets type + api_url from a login/whoami user payload.
 func ApplyWhoAmI(portalURL string, user map[string]any) (typ string, apiURL string) {
 	portalURL = NormalizeURL(portalURL)
 	acct, _ := user["account"].(map[string]any)

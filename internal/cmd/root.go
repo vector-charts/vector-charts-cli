@@ -27,6 +27,7 @@ var (
 )
 
 func NewRoot() *cobra.Command {
+	httpx.Version = Version
 	root := &cobra.Command{
 		Use:           "vc",
 		Short:         "Vector Charts command-line interface",
@@ -52,7 +53,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(permits.NewCommand(ResolveClient))
 	root.AddCommand(store.NewCommand(ResolveClient))
 	root.AddCommand(jobs.NewCommand(ResolveClient))
-	root.AddCommand(clicmd.NewCommand())
+	root.AddCommand(clicmd.NewCommand(Version))
 
 	return root
 }

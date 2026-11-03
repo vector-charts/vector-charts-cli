@@ -11,11 +11,15 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/vector-charts/vector-charts-cli/internal/config"
 )
+
+// Version is set by the CLI entrypoint (default or ldflags).
+var Version = "0.0.0"
 
 type Client struct {
 	HTTP      *http.Client
@@ -24,6 +28,14 @@ type Client struct {
 	Type      string
 	Session   string
 	APIToken  string
+}
+
+func UserAgent() string {
+	v := strings.TrimSpace(Version)
+	if v == "" {
+		v = "0.0.0"
+	}
+	return fmt.Sprintf("Vector-Charts-CLI/%s (%s/%s)", v, runtime.GOOS, runtime.GOARCH)
 }
 
 func New(profile config.Profile, creds config.Creds) *Client {
@@ -113,6 +125,7 @@ func (c *Client) doJSON(method, rawURL, bearer string, in any, out any) error {
 	if err != nil {
 		return err
 	}
+	req.Header.Set("User-Agent", UserAgent())
 	if in != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -379,6 +392,7 @@ func (c *Client) UploadChart(filePath string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", UserAgent())
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	if bearer := c.portalBearer(); bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+bearer)

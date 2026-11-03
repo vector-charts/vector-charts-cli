@@ -20,13 +20,7 @@ func newSyncCmd(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [path]",
 		Short: "Upload local chart files missing remotely; optionally prune remote extras",
-		Long: `Scan a local folder for chart files the portal accepts (.000, .zip, .txt, .prm, .h5, .vcm),
-compare against existing uploads by sanitized filename, and upload any that are not already present.
-
-With --delete, also remove remote uploads whose filename is not found locally.
-
-Defaults to the current working directory when path is omitted. Scans recursively.`,
-		Args: cobra.MaximumNArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := "."
 			if len(args) == 1 {
@@ -102,19 +96,19 @@ func runSync(client *httpx.Client, dir string, opts syncOptions) error {
 	for name, path := range localByName {
 		if _, exists := remoteByName[name]; exists {
 			skipped++
-			output.Printf("skip  %s (already uploaded)\n", name)
+			output.Printf("%s  %s (already uploaded)\n", output.Grey("skip"), name)
 			continue
 		}
 		if opts.DryRun {
 			uploaded++
-			output.Printf("would upload %s\n", path)
+			output.Printf("%s %s\n", output.Yellow("would upload"), path)
 			continue
 		}
-		output.Printf("upload %s\n", path)
+		output.Printf("%s %s\n", output.Cyan("upload"), path)
 		out, err := client.UploadChart(path)
 		if err != nil {
 			failed++
-			output.Errf("error: failed to upload %s: %v\n", path, err)
+			output.Errf("%s failed to upload %s: %v\n", output.Red("error:"), path, err)
 			continue
 		}
 		uploaded++
@@ -140,13 +134,13 @@ func runSync(client *httpx.Client, dir string, opts syncOptions) error {
 				}
 				if opts.DryRun {
 					deleted++
-					output.Printf("would delete %s (%s)\n", name, id)
+					output.Printf("%s %s (%s)\n", output.Yellow("would delete"), name, id)
 					continue
 				}
-				output.Printf("delete %s (%s)\n", name, id)
+				output.Printf("%s %s (%s)\n", output.Red("delete"), name, id)
 				if err := client.PortalJSON("DELETE", "/v1/charts/uploads/"+id, nil, nil); err != nil {
 					failed++
-					output.Errf("error: failed to delete %s: %v\n", id, err)
+					output.Errf("%s failed to delete %s: %v\n", output.Red("error:"), id, err)
 					continue
 				}
 				deleted++
@@ -157,6 +151,13 @@ func runSync(client *httpx.Client, dir string, opts syncOptions) error {
 	label := "Sync complete"
 	if opts.DryRun {
 		label = "Dry run complete"
+	}
+	if failed > 0 {
+		label = output.Red(label)
+	} else if opts.DryRun {
+		label = output.Yellow(label)
+	} else {
+		label = output.Green(label)
 	}
 	output.Printf("\n%s: uploaded=%d skipped=%d deleted=%d failed=%d local=%d remote=%d\n",
 		label, uploaded, skipped, deleted, failed, len(localByName), len(items))

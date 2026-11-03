@@ -7,18 +7,17 @@
 In addition to being a useful utility, this project serves as an example of how to interact with Vector Charts software programmatically.
 
 - [Requirements](https://github.com/vector-charts/vector-charts-cli#requirements)
-- [Installation](https://github.com/vector-charts/vector-charts-cli#install)
+- [Installation](https://github.com/vector-charts/vector-charts-cli#installation)
 - [Configuration](https://github.com/vector-charts/vector-charts-cli#configuration)
-- [Examples](https://github.com/vector-charts/vector-charts-cli#examples)
 - [Command Reference](https://github.com/vector-charts/vector-charts-cli#command-reference)
-- [Developer Guide](https://github.com/vector-charts/vector-charts-cli#developers)
+- [Developer Guide](https://github.com/vector-charts/vector-charts-cli#developer-guide)
 
 ## Requirements
 
 - A Vector Charts Cloud account, or a locally-hosted Vector Charts OEM instance
 - Linux or macOS (`x86_64` and `aarch64` are supported)
 
-## Install
+## Installation
 
 Install with the convenience script:
 
@@ -78,19 +77,19 @@ If completions do not load, ensure `compinit` runs in your `~/.zshrc`.
 
 ## Configuration
 
-`vc` uses named **profiles** to manage multiple Vector Charts server instances. Each profile stores a server URL and credentials. Configuration for provides are stored in `~/.vector-charts` (or the path set by `VECTOR_CHARTS_HOME` environment variable.)
+`vc` uses named **profiles** to manage multiple Vector Charts instances. Each profile stores a URL and credentials. Profile configuration is stored in `~/.vector-charts` (or the path set by the `VECTOR_CHARTS_HOME` environment variable).
 
-Before using the CLI to manage an instance, you must add one or more profiles. To add a new profile:
+Before using the CLI to manage an instance, add one or more profiles:
 
 ```bash
 # vc server add [name] [url] [flags]
 vc server add cloud https://cloud.vectorcharts.com
 ```
 
-Once adding a profile, or if authentication expires, refresh your local token:
+Once you add a profile, or if authentication expires, refresh your local token:
 
 ```bash
-#  Authenticate via an interactive browser login flow
+# Authenticate via an interactive browser login flow
 vc server login
 connecting to server 'cloud'...
 Open the following URL in a browser and confirm the code:
@@ -104,21 +103,30 @@ Logged in as ... on profile "cloud"
 ```
 
 ```bash
-# Authenticate via a manually-created personal access token
+# Authenticate with a Personal Access Token
 vc server login --token <token-string>
 ```
 
-
 To list all profiles:
+
 ```bash
 vc server list
-┌───────────────┬────────────────────────────────┬───────────────────────────┐
-│ local-oem*    │ http://localhost:9909          │ offline, last seen 6h ago │
-│ cloud         │ https://cloud.vectorcharts.com │ online                    │
-└───────────────┴────────────────────────────────┴───────────────────────────┘
+┌───────────────┬────────────────────────────────┐
+│ local-oem*    │ http://localhost:9909          │
+├───────────────┼────────────────────────────────┤
+│ STATUS        │ offline, last seen 6h ago      │
+│ AUTH          │ none                           │
+└───────────────┴────────────────────────────────┘
+┌───────────────┬────────────────────────────────┐
+│ cloud         │ https://cloud.vectorcharts.com │
+├───────────────┼────────────────────────────────┤
+│ STATUS        │ online                         │
+│ AUTH          │ ok                             │
+└───────────────┴────────────────────────────────┘
 ```
 
 To select an active profile as the default:
+
 ```bash
 # vc server use <name> [flags]
 vc server use cloud
@@ -157,13 +165,11 @@ Manage connection profiles and authentication.
 
 #### `vc server add [name] [url]`
 
-Add a connection profile (server URL only). Instance type is resolved automatically after login.
-
-If `name` is omitted, the profile is stored as `default`.
+Add a connection profile. If `name` is omitted, the profile is stored as `default`.
 
 | Flag | Description |
 |------|-------------|
-| `--url <url>` | Server base URL (alternative to positional URL). |
+| `--url <url>` | URL (alternative to positional URL). |
 
 ```bash
 vc server add https://cloud.vectorcharts.com
@@ -192,17 +198,17 @@ List all profiles and probe connectivity / auth for each.
 Authenticate against the current profile. Modes:
 
 1. **Device browser flow** (default) - opens a verification URL and waits for approval.
-2. **`--token`** - Personal Access Token (or legacy session / OEM API token).
+2. **`--token`** - Personal Access Token.
 3. **`--username`** - username/email + interactive password prompt.
 
 | Flag | Description |
 |------|-------------|
-| `--token <token>` | Personal Access Token (or legacy session / OEM API token). |
+| `--token <token>` | Personal Access Token. |
 | `--username <name>` | Username/email for password login. |
 
 ```bash
 vc server login
-vc server login --token <session-or-oem-api-token>
+vc server login --token <token>
 vc server login --username admin
 ```
 
@@ -214,15 +220,15 @@ Clear cached CLI credentials for the current profile (and attempt remote logout 
 
 ### `vc token`
 
-Manage API tokens. Requires auth.
+Manage Personal Access Tokens. Requires auth.
 
 #### `vc token list`
 
-List API tokens.
+List Personal Access Tokens.
 
 #### `vc token create`
 
-Create an API token.
+Create a Personal Access Token.
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -235,7 +241,7 @@ vc token create --name "CI bot"
 
 #### `vc token update <id>`
 
-Update an API token name.
+Update a Personal Access Token name.
 
 | Flag | Description |
 |------|-------------|
@@ -247,7 +253,7 @@ vc token update <id> --name "Renamed"
 
 #### `vc token delete <id>`
 
-Delete an API token.
+Delete a Personal Access Token.
 
 ---
 
@@ -311,7 +317,7 @@ vc upload status <id>
 
 #### `vc upload sync [path]`
 
-Scan a local folder (default: current directory) recursively for compatible chart files, compare against remote uploads by sanitized filename, and upload any that are missing remotely.
+Scan a local folder for chart files missing from uploads, and upload them.
 
 | Flag | Description |
 |------|-------------|
@@ -327,9 +333,7 @@ vc upload sync ./charts --dry-run
 
 #### `vc upload ftp-sync`
 
-Download chart files from an S-63 FTP provider, then sync them as uploads. Prompts for FTP host/path, username, and password unless given via flags.
-
-The path is relative to the FTP login directory (`CWD`). Existing uploads are listed first; FTP files whose sanitized filename already exists are skipped (not re-downloaded).
+Download chart files from an S-63 FTP provider, then sync them as uploads.
 
 | Flag | Description |
 |------|-------------|
@@ -445,6 +449,14 @@ vc job status
 ### `vc cli`
 
 CLI utility commands.
+
+#### `vc cli check-update`
+
+Check GitHub Releases for a newer `vc` version. If an update is available, print the convenience install command.
+
+```bash
+vc cli check-update
+```
 
 #### `vc cli completion`
 

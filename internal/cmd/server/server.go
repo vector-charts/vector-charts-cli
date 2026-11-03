@@ -44,9 +44,7 @@ func newDiscoverCmd() *cobra.Command {
 		Use:   "discover",
 		Short: "Discover Vector Charts instances on the local network",
 		Long: `Listen for UDP multicast discovery beacons ($VC-DISCOVER-1.0) and list
-instances announcing themselves on the LAN (same mechanism as Zeus discovery).
-
-OEM containers typically need host networking for multicast to reach the LAN.`,
+instances announcing themselves on the LAN.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			output.Errf("Listening for Vector Charts instances on %s:%d (%ds)...\n", group, port, timeoutSec)
 			peers, err := discovery.Listen(group, port, time.Duration(timeoutSec)*time.Second)
@@ -90,19 +88,8 @@ func newAddCmd() *cobra.Command {
 	var urlFlag string
 	cmd := &cobra.Command{
 		Use:   "add [name] [url]",
-		Short: "Add a connection profile (portal URL only)",
-		Long: `Add a named profile pointing at a portal URL.
-
-Cloud vs OEM and the tile API URL are resolved automatically after login
-from the portal whoami response (account.planInstance).
-
-Examples:
-  vc server add https://cloud.vectorcharts.com
-  vc server add cloud https://cloud.vectorcharts.com
-  vc server add oem --url http://localhost:9909
-
-If name is omitted, the profile is stored as "default".`,
-		Args: cobra.RangeArgs(1, 2),
+		Short: "Add a connection profile",
+		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := "default"
 			rawURL := ""
@@ -148,7 +135,7 @@ If name is omitted, the profile is stored as "default".`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&urlFlag, "url", "", "Portal base URL (e.g. https://cloud.vectorcharts.com or http://localhost:9909)")
+	cmd.Flags().StringVar(&urlFlag, "url", "", "URL (e.g. https://cloud.vectorcharts.com or http://localhost:9909)")
 	return cmd
 }
 
@@ -264,50 +251,24 @@ func newInfoCmd(factory cli.Factory) *cobra.Command {
 				"api_error":     res.APIErr,
 			}
 			errOut := output.PrintJSONOr(payload, func() error {
-				rows := [][]string{
-					{"NAME", name},
-					{"URL", p.URL},
+				mark := name
+				if name == cfg.CurrentProfile {
+					mark = name + "*"
 				}
-				if p.APIURL != "" && p.APIURL != p.URL {
-					rows = append(rows, []string{"API_URL", p.APIURL})
+				status := "offline"
+				if res.PortalOK || res.APIOK {
+					status = "online"
 				}
-				if typ := firstNonEmpty(res.Type, p.Type); typ != "" {
-					rows = append(rows, []string{"TYPE", typ})
-				}
-				if lastSeen := firstNonEmpty(res.LastSeen, p.LastSeen); lastSeen != "" {
-					rows = append(rows, []string{"LAST_SEEN", lastSeen})
-				}
-				rows = append(rows,
-					[]string{"CURRENT", output.ColorState(output.Boolish(name == cfg.CurrentProfile))},
-					[]string{"HAS_SESSION", output.ColorState(output.Boolish(creds.SessionToken != ""))},
-					[]string{"HAS_API_TOKEN", output.ColorState(output.Boolish(creds.APIToken != ""))},
-					[]string{"STATUS", output.ColorState(res.Status)},
-					[]string{"AUTH", output.ColorState(res.Auth)},
+				return output.Table(
+					[]string{mark, p.URL},
+					[][]string{
+						{"Type", firstNonEmpty(res.Type, p.Type)},
+						{"Last Seen", config.FormatLastSeen(firstNonEmpty(res.LastSeen, p.LastSeen))},
+						{"Status", output.ColorState(status)},
+						{"Authenticated", output.ColorState(res.Auth)},
+						{"Username", res.User},
+					},
 				)
-				if res.User != "" {
-					rows = append(rows, []string{"USER", res.User})
-				}
-				portal := "ok"
-				if !res.PortalOK {
-					portal = "failed"
-					if res.PortalErr != "" {
-						portal = "failed: " + res.PortalErr
-					}
-				}
-				api := "ok"
-				if !res.APIOK {
-					api = "failed"
-					if res.APIErr != "" {
-						api = "failed: " + res.APIErr
-					}
-				} else if res.APIMode != "" {
-					api = "ok (" + res.APIMode + ")"
-				}
-				rows = append(rows,
-					[]string{"PORTAL", output.ColorState(portal)},
-					[]string{"API", output.ColorState(api)},
-				)
-				return output.Table([]string{"FIELD", "VALUE"}, rows)
 			})
 			if !res.PortalOK || !res.APIOK {
 				return fmt.Errorf("one or more health checks failed")
@@ -442,20 +403,25 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 			_ = config.Save(cfg)
 
 			return output.PrintJSONOr(results, func() error {
-				rows := make([][]string, 0, len(results))
-				for _, r := range results {
+				for i, r := range results {
 					mark := r.Name
 					if r.Name == cfg.CurrentProfile {
 						mark = r.Name + "*"
 					}
-					rows = append(rows, []string{
-						mark,
-						r.Portal,
-						output.ColorState(r.Status),
-						output.ColorState(r.Auth),
-					})
+					if i > 0 {
+						output.Println()
+					}
+					if err := output.Table(
+						[]string{mark, r.Portal},
+						[][]string{
+							{"STATUS", output.ColorState(r.Status)},
+							{"AUTH", output.ColorState(r.Auth)},
+						},
+					); err != nil {
+						return err
+					}
 				}
-				return output.Table([]string{"NAME", "URL", "STATUS", "AUTH"}, rows)
+				return nil
 			})
 		},
 	}
@@ -464,7 +430,7 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 func newWhoamiCmd(factory cli.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
-		Short: "Show the authenticated portal user",
+		Short: "Show the authenticated user",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, _, client, err := factory(true)
 			if err != nil {
@@ -515,7 +481,7 @@ func newLoginCmd(factory cli.Factory) *cobra.Command {
 	var tokenFlag, username string
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Authenticate with a Personal Access Token (device browser flow, --token, or --username)",
+		Short: "Authenticate (browser flow, --token, or --username)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, p, creds, client, err := factory(false)
 			if err != nil {
@@ -583,15 +549,15 @@ func newLoginCmd(factory cli.Factory) *cobra.Command {
 			return deviceLogin(name, p.URL, client, machineID, machineLabel)
 		},
 	}
-	cmd.Flags().StringVar(&tokenFlag, "token", "", "Personal Access Token (or legacy session / OEM API token)")
-	cmd.Flags().StringVar(&username, "username", "", "Portal username/email for password login")
+	cmd.Flags().StringVar(&tokenFlag, "token", "", "Personal Access Token")
+	cmd.Flags().StringVar(&username, "username", "", "Username/email for password login")
 	return cmd
 }
 
 func deviceLogin(name, portalURL string, client *httpx.Client, machineID, machineLabel string) error {
 	start, err := client.StartDeviceAuth(machineID, machineLabel)
 	if err != nil {
-		return fmt.Errorf("device auth not available (is the portal updated?): %w", err)
+		return fmt.Errorf("device auth not available: %w", err)
 	}
 
 	output.Printf("Open the following URL in a browser and confirm the code:\n\n")

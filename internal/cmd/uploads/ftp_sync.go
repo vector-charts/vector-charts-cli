@@ -31,27 +31,7 @@ func newFTPSyncCmd(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ftp-sync",
 		Short: "Download chart files from an S-63 FTP provider and upload them",
-		Long: `Interactively connect to an FTP chart provider, download the remote tree into a
-local folder, then sync compatible files to Vector Charts uploads.
-
-Prompts for FTP host/path, username, and password unless provided via flags.
-
-The optional path is treated as relative to the FTP login directory (CWD into each
-segment). Some providers reject absolute LIST paths.
-
-Existing portal uploads are queried first; remote files whose sanitized filename
-already exists are skipped (not downloaded again).
-
-With --prefix, only files whose remote path contains that substring are considered.
-
-Accepted download extensions match portal uploads: .000, .zip, .txt, .prm, .h5, .vcm.
-
-With --dry-run, files that are not already uploaded are still downloaded locally,
-but nothing is uploaded to the portal.
-
-Deletions are opt-in: pass --delete to remove portal uploads missing from the FTP
-set (default is not to delete).`,
-		Args: cobra.NoArgs,
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, _, client, err := factory(true)
 			if err != nil {
@@ -68,7 +48,7 @@ set (default is not to delete).`,
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Download new files but do not upload to the portal")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Download new files but do not upload")
 	cmd.Flags().BoolVar(&deleteRemote, "delete", false, "Delete remote uploads not present on the FTP server (default: false)")
 	cmd.Flags().StringVar(&localDir, "dir", "", "Local directory for FTP downloads (default: temp dir)")
 	cmd.Flags().StringVar(&ftpTarget, "ftp", "", "FTP host[/path] relative to login dir (e.g. ftp.example.com/ENC)")
@@ -322,14 +302,14 @@ func walkFTP(conn *ftp.ServerConn, localDir, relDir string, uploadedNames map[st
 			stats.SeenNames[key] = struct{}{}
 			if _, exists := uploadedNames[key]; exists {
 				stats.SkippedUploaded++
-				output.Printf("  skip %s (already uploaded)\n", relPath)
+				output.Printf("  %s %s (already uploaded)\n", output.Grey("skip"), relPath)
 				continue
 			}
 			if err := downloadFTPFile(conn, name, localPath); err != nil {
 				return err
 			}
 			stats.Downloaded++
-			output.Printf("  got %s\n", relPath)
+			output.Printf("  %s %s\n", output.Cyan("got"), relPath)
 		}
 	}
 	return nil

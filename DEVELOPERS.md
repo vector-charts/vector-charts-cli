@@ -49,8 +49,6 @@ mkdir -p "$HOME/.local/bin"
 ln -sf "$(pwd)/build/vc" "$HOME/.local/bin/vc"
 ```
 
-Interactive login requires portal device-auth endpoints (`POST /api/portal/v1/auth/device/*`) and the SPA `/device` page.
-
 ## Releasing
 
 From an up-to-date `main`:
