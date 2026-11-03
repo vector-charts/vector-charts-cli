@@ -1,15 +1,9 @@
 name: release
 
-# Push release/<x.y.z> to create tag <x.y.z> and publish in the same run.
-# Direct x.y.z tag pushes and workflow_dispatch also publish.
-# Publish must run in-workflow: tag pushes made with GITHUB_TOKEN do not
-# trigger a second workflow run.
+# Manual release from the Actions UI. Creates tag <x.y.z> and publishes only
+# after running the same gates as CI (lint/vet/test). Prefer pushing a
+# release/<x.y.z> branch so the ci workflow tags and publishes after CI passes.
 on:
-  push:
-    branches:
-      - "release/**"
-    tags:
-      - "*.*.*"
   workflow_dispatch:
     inputs:
       version:
@@ -21,15 +15,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.version }}
   cancel-in-progress: false
 
 jobs:
-  tag:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/release/')
+  publish:
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,20 +31,37 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            raw="${{ inputs.version }}"
-          else
-            raw="${GITHUB_REF_NAME#release/}"
-          fi
+          raw="${{ inputs.version }}"
           raw="${raw#v}"
           if [[ ! "$raw" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
             echo "error: invalid version '$raw' (expected x.y.z)" >&2
             exit 1
           fi
-          tag="${raw}"
           echo "version=${raw}" >> "$GITHUB_OUTPUT"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          echo "Resolved release tag ${tag}"
+          echo "tag=${raw}" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag ${raw}"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: Check go.mod is tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.5
+
+      - name: Test
+        run: go test ./...
 
       - name: Create and push tag
         env:
@@ -64,31 +72,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag ${TAG} already exists; leaving it in place"
-            exit 0
+          else
+            git tag -a "$TAG" -m "Release ${TAG}"
+            git push origin "$TAG"
           fi
-          git tag -a "$TAG" -m "Release ${TAG}"
-          git push origin "$TAG"
-
-  publish:
-    needs: [tag]
-    if: |
-      always() && (
-        needs.tag.result == 'success' ||
-        (needs.tag.result == 'skipped' && startsWith(github.ref, 'refs/tags/'))
-      )
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ needs.tag.outputs.tag || github.ref_name }}
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.25.x"
-
-      - name: Test
-        run: go test ./...
 
       - uses: goreleaser/goreleaser-action@v6
         with:
@@ -97,3 +84,4 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.version.outputs.tag }}
