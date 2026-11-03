@@ -68,6 +68,6 @@ git checkout -b release/1.2.3
 git push -u origin HEAD
 ```
 
-Pushing `release/1.2.3` creates and pushes tag `1.2.3`. That tag run builds with GoReleaser and uploads Linux/macOS archives plus `.deb` packages to a GitHub Release.
+Pushing `release/1.2.3` runs CI. After lint, build, and test succeed, the same workflow creates tag `1.2.3`, builds with GoReleaser, and uploads Linux/macOS archives plus `.deb` packages to a GitHub Release. If CI fails, no tag or release is created.
 
-You can also push an `x.y.z` tag directly, or run the **release** workflow from the Actions UI with a version input (`x.y.z`).
+You can also push an `x.y.z` tag directly (CI must pass, then GoReleaser publishes), or run the **release** workflow from the Actions UI with a version input (`x.y.z`); that path re-runs lint/test before tagging.
