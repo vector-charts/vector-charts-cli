@@ -40,13 +40,23 @@ go build -o build/vc ./cmd/vc
 sudo ln -sf "$(pwd)/build/vc" /usr/local/bin/vc
 ```
 
-Rebuild with `go build -o build/vc ./cmd/vc` and the same `vc` on your `PATH` picks up the new binary. Remove the symlink (or replace it with a release install) when you are done developing.
+Rebuild with `go build -o build/vc ./cmd/vc` and the same `vc` on your `PATH` picks up the new binary.
 
 If `/usr/local/bin` is not writable, use a user-local directory on your `PATH` instead:
 
 ```bash
 mkdir -p "$HOME/.local/bin"
 ln -sf "$(pwd)/build/vc" "$HOME/.local/bin/vc"
+```
+
+### Uninstall symlink
+
+Remove the symlink when you are done developing (or replace it with a release install):
+
+```bash
+sudo rm /usr/local/bin/vc
+# or, if you used the user-local path:
+rm "$HOME/.local/bin/vc"
 ```
 
 ## Releasing
@@ -58,6 +68,6 @@ git checkout -b release/1.2.3
 git push -u origin HEAD
 ```
 
-Pushing `release/1.2.3` creates and pushes tag `v1.2.3`. That tag run builds with GoReleaser and uploads Linux/macOS archives plus `.deb` packages to a GitHub Release.
+Pushing `release/1.2.3` creates and pushes tag `1.2.3`. That tag run builds with GoReleaser and uploads Linux/macOS archives plus `.deb` packages to a GitHub Release.
 
-You can also push a `v*` tag directly, or run the **release** workflow from the Actions UI with a version input (`x.y.z`).
+You can also push an `x.y.z` tag directly, or run the **release** workflow from the Actions UI with a version input (`x.y.z`).

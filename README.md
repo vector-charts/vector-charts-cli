@@ -111,18 +111,12 @@ To list all profiles:
 
 ```bash
 vc server list
-┌───────────────┬────────────────────────────────┐
-│ local-oem*    │ http://localhost:9909          │
-├───────────────┼────────────────────────────────┤
-│ STATUS        │ offline, last seen 6h ago      │
-│ AUTH          │ none                           │
-└───────────────┴────────────────────────────────┘
-┌───────────────┬────────────────────────────────┐
-│ cloud         │ https://cloud.vectorcharts.com │
-├───────────────┼────────────────────────────────┤
-│ STATUS        │ online                         │
-│ AUTH          │ ok                             │
-└───────────────┴────────────────────────────────┘
+┌────────────┬────────────────────────────────┬───────────────────────────┬──────┐
+│ NAME       │ URL                            │ STATUS                    │ AUTH │
+├────────────┼────────────────────────────────┼───────────────────────────┼──────┤
+│ local-oem* │ http://localhost:9909          │ offline, last seen 6h ago │ none │
+│ cloud      │ https://cloud.vectorcharts.com │ online                    │ ok   │
+└────────────┴────────────────────────────────┴───────────────────────────┴──────┘
 ```
 
 To select an active profile as the default:
@@ -288,7 +282,7 @@ vc chart status <id>
 
 ### `vc upload`
 
-Create, list, status, sync, or delete chart uploads. Requires auth.
+Create, list, status, sync, ftp-sync, or delete chart uploads. Requires auth.
 
 Accepted file types: `.000`, `.zip`, `.txt`, `.prm`, `.h5`, `.vcm`.
 
