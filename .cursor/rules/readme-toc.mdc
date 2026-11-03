@@ -1,0 +1,10 @@
+---
+description: Keep README table of contents in sync with top-level sections
+alwaysApply: true
+---
+
+# README table of contents
+
+Whenever you edit `README.md`, review the top link list and update it in the same change if sections were added, removed, renamed, or reordered.
+
+TOC links use the `https://github.com/vector-charts/vector-charts-cli#...` prefix and must match current top-level `##` section anchors.

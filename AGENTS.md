@@ -51,4 +51,8 @@ This repository is public. Do not reference anything internal to the Vector Char
 
 ## Command documentation sync
 
-When adding, removing, renaming, or changing CLI commands or flags, keep command documentation in sync in the same change: update `COMMANDS.md`, and update the Command groups table (and any Quick start examples) in `README.md` when groups or representative examples change.
+When adding, removing, renaming, or changing CLI commands or flags, update the `## Command Reference` section in `README.md` in the same change (and Examples when representative usage should change). Keep that section complete and accurate for every public command and flag.
+
+## README table of contents
+
+Whenever you edit `README.md`, review the top link list (table of contents) and update it in the same change if sections were added, removed, renamed, or reordered. TOC links use the `https://github.com/vector-charts/vector-charts-cli#...` prefix and must match current top-level `##` section anchors.

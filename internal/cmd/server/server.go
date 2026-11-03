@@ -31,8 +31,8 @@ func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd.AddCommand(newInfoCmd(factory))
 	cmd.AddCommand(newLoginCmd(factory))
 	cmd.AddCommand(newLogoutCmd(factory))
-	cmd.AddCommand(newWhoamiCmd(factory))
-	cmd.AddCommand(newDiscoverCmd())
+	_ = newWhoamiCmd
+	_ = newDiscoverCmd
 	return cmd
 }
 

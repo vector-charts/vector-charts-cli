@@ -1,5 +1,5 @@
 ---
-description: Keep README command groups and COMMANDS.md in sync with CLI changes
+description: Keep README Command Reference in sync with CLI changes
 alwaysApply: true
 ---
 
@@ -7,6 +7,7 @@ alwaysApply: true
 
 When adding, removing, renaming, or changing CLI commands or flags, update docs in the same change:
 
-- `COMMANDS.md` (full command reference)
-- `README.md` Command groups table when groups change
-- `README.md` Quick start examples when representative usage should change
+- `README.md` `## Command Reference` (full command and flag reference)
+- `README.md` Examples when representative usage should change
+
+Keep Command Reference complete and accurate for every public command and flag.

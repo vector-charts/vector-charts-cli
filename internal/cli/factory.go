@@ -44,7 +44,7 @@ func ClearCredentials(name string) error {
 }
 
 func RequireNamedProfile(name string) error {
-	if name == "" || name == "(override)" {
+	if name == "" {
 		return fmt.Errorf("refusing to persist credentials without a named profile; use --profile or vc server use")
 	}
 	return nil

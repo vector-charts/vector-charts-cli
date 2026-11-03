@@ -24,7 +24,6 @@ var (
 	Version   = "0.1.0"
 	profile   string
 	outputFmt string
-	urlFlag   string
 )
 
 func NewRoot() *cobra.Command {
@@ -42,9 +41,7 @@ func NewRoot() *cobra.Command {
 	root.SetHelpCommand(&cobra.Command{Use: "__help_disabled", Hidden: true})
 
 	root.PersistentFlags().StringVar(&profile, "profile", "", "Profile name (default: sole profile, current_profile, or \"default\")")
-	root.PersistentFlags().StringVarP(&outputFmt, "format", "f", "table", "Output format: table|json")
-	root.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Alias for --format")
-	root.PersistentFlags().StringVar(&urlFlag, "url", "", "Override portal URL for this invocation")
+	root.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Output format: table|json")
 
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(server.NewCommand(ResolveClient))
@@ -70,43 +67,12 @@ func ResolveClient(requireAuth bool) (string, config.Profile, config.Creds, *htt
 		return "", config.Profile{}, config.Creds{}, nil, err
 	}
 
-	name := profile
-	var p config.Profile
-
-	if urlFlag != "" {
-		validated, err := config.ValidateBaseURL(urlFlag)
-		if err != nil {
-			return "", config.Profile{}, config.Creds{}, nil, err
-		}
-		urlFlag = validated
-		if name == "" {
-			name = "(override)"
-			p = config.Profile{URL: urlFlag}
-		} else {
-			var err error
-			name, p, err = cfg.Resolve(name)
-			if err != nil {
-				return "", config.Profile{}, config.Creds{}, nil, err
-			}
-			p.URL = urlFlag
-			if p.APIURL == "" || p.Type == "" || p.Type == config.TypeOEM {
-				p.APIURL = urlFlag
-			}
-		}
-	} else {
-		var err error
-		name, p, err = cfg.Resolve(name)
-		if err != nil {
-			return "", config.Profile{}, config.Creds{}, nil, err
-		}
+	name, p, err := cfg.Resolve(profile)
+	if err != nil {
+		return "", config.Profile{}, config.Creds{}, nil, err
 	}
-
 	p = p.Normalized()
-
-	creds := config.Creds{}
-	if name != "(override)" {
-		creds = credsFile.Profiles[name]
-	}
+	creds := credsFile.Profiles[name]
 	output.Connecting(name)
 	client := httpx.New(p, creds)
 

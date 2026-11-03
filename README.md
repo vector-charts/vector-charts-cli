@@ -2,14 +2,16 @@
 
 [![Build Status](https://github.com/vector-charts/vector-charts-cli/workflows/ci/badge.svg)](https://github.com/vector-charts/vector-charts-cli/actions?query=workflow%3Aci)
 
-`vc` is a tool to control & monitor instances of [Vector Charts](https://vectorcharts.com/), a nautical chart & geospatial data platform. The CLI interfaces with the Vector Charts control plane in order to speed up common tasks such as chart & upload file management and job monitoring. In addition to being a useful utility, this project serves as an example of how to interact with Vector Charts software programmatically.
+`vc` is a tool to control & monitor instances of [Vector Charts](https://vectorcharts.com/), a nautical chart & geospatial data platform. The CLI interfaces with the Vector Charts control plane in order to speed up common tasks such as chart & upload file management and job monitoring. 
+
+In addition to being a useful utility, this project serves as an example of how to interact with Vector Charts software programmatically.
 
 - [Requirements](https://github.com/vector-charts/vector-charts-cli#requirements)
-- [Install](https://github.com/vector-charts/vector-charts-cli#install)
-- [Quick start](https://github.com/vector-charts/vector-charts-cli#quick-start)
-- [Command groups](https://github.com/vector-charts/vector-charts-cli#command-groups)
-- [Shell completion](https://github.com/vector-charts/vector-charts-cli#shell-completion)
-- [Development](https://github.com/vector-charts/vector-charts-cli#development)
+- [Installation](https://github.com/vector-charts/vector-charts-cli#install)
+- [Configuration](https://github.com/vector-charts/vector-charts-cli#configuration)
+- [Examples](https://github.com/vector-charts/vector-charts-cli#examples)
+- [Command Reference](https://github.com/vector-charts/vector-charts-cli#command-reference)
+- [Developer Guide](https://github.com/vector-charts/vector-charts-cli#developers)
 
 ## Requirements
 
@@ -45,71 +47,11 @@ go build -o build/vc ./cmd/vc
 sudo install -m 755 build/vc /usr/local/bin/vc
 ```
 
-## Quick start
+### Shell completion
 
-### Manage server connections
+Shell completions help suggest `vc` subcommands.
 
-Profiles only need a portal URL. Cloud vs OEM and the tile API host are resolved automatically after login (from `account.planInstance`).
-
-```bash
-vc server add https://cloud.vectorcharts.com
-vc server add local-oem http://localhost:9909
-
-vc server login          # opens browser device flow
-# or: vc server login --token <session-or-oem-api-token>
-# or: vc server login --username admin
-
-vc server discover       # find instances on the LAN (UDP multicast)
-vc server list           # connectivity + auth probe
-vc server whoami
-```
-
-Config lives under `~/.vector-charts/`:
-
-- `config.yml` - profiles (`url`; `type` / `api_url` filled after login; `last_seen` updated on successful contact)
-- `credentials.yml` - session / API tokens (mode 0600)
-
-Override with `VECTOR_CHARTS_HOME`.
-
-If `--profile` is omitted: the sole profile is used when only one exists, else `current_profile`, else `default`. URL may be positional on `vc server add` (`vc server add [name] <url>`).
-
-### Examples
-
-```bash
-vc upload create ./chart.zip
-vc chart list
-vc store enable au
-vc job status
-```
-
-## Command groups
-
-| Group | Purpose |
-|-------|---------|
-| `vc server` | Profiles, login/logout, connectivity |
-| `vc token` | Portal API token CRUD |
-| `vc chart` | Custom cells: list / enable / disable / status |
-| `vc upload` | Chart upload create / list / status / sync / ftp-sync / delete |
-| `vc permit` | S-63 permit helpers (`show-s63-user-permit`) |
-| `vc license` | List licenses and S-63 cell permits |
-| `vc store` | Chart store subscriptions: list / enable / disable |
-| `vc job` | List jobs and status snapshot |
-| `vc cli` | CLI utilities (shell completion) |
-
-Full command reference: [COMMANDS.md](COMMANDS.md).
-
-Global flags: `--profile`, `--format` / `-f` `table|json` (`-o` alias), `--url`.
-
-- `table` - aligned columns (default)
-- `json` - indented JSON
-
-## Shell completion
-
-Generate scripts with `vc cli completion <shell>`.
-
-### Bash
-
-Requires the `bash-completion` package.
+For bash (requires the `bash-completion` package):
 
 ```bash
 # current session
@@ -122,7 +64,7 @@ vc cli completion bash | sudo tee /etc/bash_completion.d/vc > /dev/null
 vc cli completion bash > "$(brew --prefix)/etc/bash_completion.d/vc"
 ```
 
-### Zsh
+For zsh:
 
 ```bash
 # current session
@@ -134,55 +76,393 @@ vc cli completion zsh > "${fpath[1]}/_vc"
 
 If completions do not load, ensure `compinit` runs in your `~/.zshrc`.
 
-Start a new shell after installing permanent completions.
+## Configuration
 
-## Development
+`vc` uses named **profiles** to manage multiple Vector Charts server instances. Each profile stores a server URL and credentials. Configuration for provides are stored in `~/.vector-charts` (or the path set by `VECTOR_CHARTS_HOME` environment variable.)
 
-```bash
-go build -o build/vc ./cmd/vc
-go test ./...
-```
-
-### Nix
-
-Requires [Nix](https://nixos.org/download/) with flakes enabled (`experimental-features = nix-command flakes` in `nix.conf`).
-
-Enter the flake dev shell (Go, gopls, gotools, goreleaser):
+Before using the CLI to manage an instance, you must add one or more profiles. To add a new profile:
 
 ```bash
-nix develop
+# vc server add [name] [url] [flags]
+vc server add cloud https://cloud.vectorcharts.com
 ```
 
-Then build and test as usual:
+Once adding a profile, or if authentication expires, refresh your local token:
 
 ```bash
-go build -o build/vc ./cmd/vc
-go test ./...
-```
+#  Authenticate via an interactive browser login flow
+vc server login
+connecting to server 'cloud'...
+Open the following URL in a browser and confirm the code:
 
-Or build / run the packaged binary without entering the shell:
+  https://cloud.vectorcharts.com/device?machineId=...
+
+User code: ....-....
+
+Waiting for approval...
+Logged in as ... on profile "cloud"
+```
 
 ```bash
-nix build            # result -> ./result/bin/vc
-nix run -- version   # run without installing
+# Authenticate via a manually-created personal access token
+vc server login --token <token-string>
 ```
 
-### Dev symlink
 
-To run the repo binary as `vc` without copying into `/usr/local/bin` on every rebuild, symlink it onto your `PATH`:
+To list all profiles:
+```bash
+vc server list
+┌───────────────┬────────────────────────────────┬───────────────────────────┐
+│ local-oem*    │ http://localhost:9909          │ offline, last seen 6h ago │
+│ cloud         │ https://cloud.vectorcharts.com │ online                    │
+└───────────────┴────────────────────────────────┴───────────────────────────┘
+```
+
+To select an active profile as the default:
+```bash
+# vc server use <name> [flags]
+vc server use cloud
+Using profile "cloud"
+```
+
+Most `vc` commands interact with the active profile. Pass `--profile` to set it for a single command, or use `vc server use` to persist a default.
+
+## Command Reference
+
+### Global flags
+
+Available on every command:
+
+| Flag | Description |
+|------|-------------|
+| `--profile <name>` | Profile to use. If omitted, use the currently-set active profile, the profile named 'default', or the only profile if only one exists.|
+| `-o, --output <table\|json>` | Output format (default `table`). |
+| `-h, --help` | Help for the command. |
+
+---
+
+### `vc version`
+
+Print CLI version.
 
 ```bash
-go build -o build/vc ./cmd/vc
-sudo ln -sf "$(pwd)/build/vc" /usr/local/bin/vc
+vc version
 ```
 
-Rebuild with `go build -o build/vc ./cmd/vc` and the same `vc` on your `PATH` picks up the new binary. Remove the symlink (or replace it with a release install) when you are done developing.
+---
 
-If `/usr/local/bin` is not writable, use a user-local directory on your `PATH` instead:
+### `vc server`
+
+Manage connection profiles and authentication.
+
+#### `vc server add [name] [url]`
+
+Add a connection profile (server URL only). Instance type is resolved automatically after login.
+
+If `name` is omitted, the profile is stored as `default`.
+
+| Flag | Description |
+|------|-------------|
+| `--url <url>` | Server base URL (alternative to positional URL). |
 
 ```bash
-mkdir -p "$HOME/.local/bin"
-ln -sf "$(pwd)/build/vc" "$HOME/.local/bin/vc"
+vc server add https://cloud.vectorcharts.com
+vc server add cloud https://cloud.vectorcharts.com
+vc server add oem --url http://localhost:9909
 ```
 
-Interactive login requires portal device-auth endpoints (`POST /api/portal/v1/auth/device/*`) and the SPA `/device` page.
+#### `vc server remove <name>`
+
+Remove a connection profile (and its cached credentials).
+
+#### `vc server use <name>`
+
+Set the current profile.
+
+#### `vc server info [name]`
+
+Show profile details and probe connectivity and auth. Defaults to the current profile when `name` is omitted.
+
+#### `vc server list`
+
+List all profiles and probe connectivity / auth for each.
+
+#### `vc server login`
+
+Authenticate against the current profile. Modes:
+
+1. **Device browser flow** (default) - opens a verification URL and waits for approval.
+2. **`--token`** - Personal Access Token (or legacy session / OEM API token).
+3. **`--username`** - username/email + interactive password prompt.
+
+| Flag | Description |
+|------|-------------|
+| `--token <token>` | Personal Access Token (or legacy session / OEM API token). |
+| `--username <name>` | Username/email for password login. |
+
+```bash
+vc server login
+vc server login --token <session-or-oem-api-token>
+vc server login --username admin
+```
+
+#### `vc server logout`
+
+Clear cached CLI credentials for the current profile (and attempt remote logout when a session is present).
+
+---
+
+### `vc token`
+
+Manage API tokens. Requires auth.
+
+#### `vc token list`
+
+List API tokens.
+
+#### `vc token create`
+
+Create an API token.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--name <name>` | Token name | `CLI Token` |
+
+```bash
+vc token create
+vc token create --name "CI bot"
+```
+
+#### `vc token update <id>`
+
+Update an API token name.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | New token name |
+
+```bash
+vc token update <id> --name "Renamed"
+```
+
+#### `vc token delete <id>`
+
+Delete an API token.
+
+---
+
+### `vc chart`
+
+Manage custom chart cells. Requires auth.
+
+#### `vc chart list`
+
+List custom cells.
+
+#### `vc chart enable <id>`
+
+Enable a custom cell.
+
+#### `vc chart disable <id>`
+
+Disable a custom cell.
+
+#### `vc chart status <id>`
+
+Get processing status for a custom cell.
+
+```bash
+vc chart list
+vc chart enable <id>
+vc chart disable <id>
+vc chart status <id>
+```
+
+---
+
+### `vc upload`
+
+Create, list, status, sync, or delete chart uploads. Requires auth.
+
+Accepted file types: `.000`, `.zip`, `.txt`, `.prm`, `.h5`, `.vcm`.
+
+#### `vc upload create <file>`
+
+Also accepted as `vc upload add <file>`.
+
+Upload a chart file for ingestion.
+
+```bash
+vc upload create ./chart.zip
+vc upload add ./chart.zip
+```
+
+#### `vc upload list`
+
+List uploads.
+
+#### `vc upload status <id>`
+
+Show status info for an upload (filename, status, size, chart counts, timestamps, logs).
+
+```bash
+vc upload status <id>
+```
+
+#### `vc upload sync [path]`
+
+Scan a local folder (default: current directory) recursively for compatible chart files, compare against remote uploads by sanitized filename, and upload any that are missing remotely.
+
+| Flag | Description |
+|------|-------------|
+| `--delete` | Delete remote uploads whose filename is not present locally |
+| `--dry-run` | Show what would change without uploading/deleting |
+
+```bash
+vc upload sync
+vc upload sync ./charts
+vc upload sync ./charts --delete
+vc upload sync ./charts --dry-run
+```
+
+#### `vc upload ftp-sync`
+
+Download chart files from an S-63 FTP provider, then sync them as uploads. Prompts for FTP host/path, username, and password unless given via flags.
+
+The path is relative to the FTP login directory (`CWD`). Existing uploads are listed first; FTP files whose sanitized filename already exists are skipped (not re-downloaded).
+
+| Flag | Description |
+|------|-------------|
+| `--ftp <host/path>` | FTP target (e.g. `ftp.example.com/ENC`) |
+| `--username <name>` | FTP username |
+| `--password <pass>` | FTP password (prefer the interactive prompt) |
+| `--dir <path>` | Local download directory (default: temp dir) |
+| `--prefix <text>` | Only include files whose remote path contains this substring |
+| `--dry-run` | Download new files but do not upload |
+| `--delete` | Delete remote uploads not present on the FTP server |
+
+```bash
+vc upload ftp-sync
+vc upload ftp-sync --ftp ftp.example.com/ENC --username charts --dry-run
+vc upload ftp-sync --dir ./ftp-cache
+```
+
+#### `vc upload delete <id>`
+
+Delete an upload.
+
+---
+
+### `vc permit`
+
+S-63 permit helpers. Requires auth.
+
+#### `vc permit show-s63-user-permit`
+
+Fetch the account S-63 user permit.
+
+```bash
+vc permit show-s63-user-permit
+```
+
+---
+
+### `vc license`
+
+List account chart licenses and S-63 cell permits. Requires auth.
+
+#### `vc license list`
+
+List store licenses and S-63 cell permits.
+
+```bash
+vc license list
+```
+
+---
+
+### `vc store`
+
+Manage chart store subscriptions. Requires auth.
+
+#### `vc store list`
+
+List chart store products and subscription state.
+
+#### `vc store enable <product-code>`
+
+Also accepted as `vc store subscribe <product-code>`.
+
+Enable (subscribe to) a chart store product.
+
+```bash
+vc store enable au
+vc store subscribe au
+```
+
+#### `vc store disable <product-code>`
+
+Also accepted as `unsubscribe` or `cancel`.
+
+Disable (unsubscribe from) a chart store product.
+
+```bash
+vc store disable au
+vc store cancel au
+```
+
+---
+
+### `vc job`
+
+Inspect background jobs. Requires auth.
+
+#### `vc job list`
+
+List jobs. By default hides `completed` and `scheduled` jobs.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--active-only` | Only pending/running jobs | `false` |
+| `--all` | Include completed and scheduled jobs | `false` |
+
+```bash
+vc job list
+vc job list --active-only
+vc job list --all
+```
+
+#### `vc job status`
+
+Show active jobs with progress summary.
+
+```bash
+vc job status
+```
+
+---
+
+### `vc cli`
+
+CLI utility commands.
+
+#### `vc cli completion`
+
+Generate shell autocompletion scripts.
+
+##### `vc cli completion bash`
+
+Generate the autocompletion script for bash.
+
+##### `vc cli completion zsh`
+
+Generate the autocompletion script for zsh.
+
+```bash
+vc cli completion bash
+vc cli completion zsh
+```
+
+## Developer Guide
+
+See [DEVELOPERS.md](DEVELOPERS.md).
