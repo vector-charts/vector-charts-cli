@@ -68,6 +68,6 @@ git checkout -b release/1.2.3
 git push -u origin HEAD
 ```
 
-Pushing `release/1.2.3` creates and pushes tag `1.2.3`. That tag run builds with GoReleaser and uploads Linux/macOS archives plus `.deb` packages to a GitHub Release.
+Pushing `release/1.2.3` creates and pushes tag `1.2.3`, then builds with GoReleaser and uploads Linux/macOS archives plus `.deb` packages to a GitHub Release in the same workflow run.
 
 You can also push an `x.y.z` tag directly, or run the **release** workflow from the Actions UI with a version input (`x.y.z`).

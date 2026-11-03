@@ -1,7 +1,9 @@
 name: release
 
-# Push release/<x.y.z> to create tag <x.y.z>. Tag push runs GoReleaser and
-# publishes a GitHub Release. Also supports direct x.y.z tags and workflow_dispatch.
+# Push release/<x.y.z> to create tag <x.y.z> and publish in the same run.
+# Direct x.y.z tag pushes and workflow_dispatch also publish.
+# Publish must run in-workflow: tag pushes made with GITHUB_TOKEN do not
+# trigger a second workflow run.
 on:
   push:
     branches:
@@ -68,12 +70,18 @@ jobs:
           git push origin "$TAG"
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [tag]
+    if: |
+      always() && (
+        needs.tag.result == 'success' ||
+        (needs.tag.result == 'skipped' && startsWith(github.ref, 'refs/tags/'))
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ needs.tag.outputs.tag || github.ref_name }}
 
       - uses: actions/setup-go@v5
         with:
