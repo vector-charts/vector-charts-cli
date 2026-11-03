@@ -50,8 +50,10 @@ func newCreateCmd(factory cli.Factory) *cobra.Command {
 				return err
 			}
 			return output.PrintJSONOr(out, func() error {
-				output.Printf("Upload queued: id=%v status=%s\n", out["id"], output.ColorState(output.Str(out["status"])))
-				return nil
+				return output.Table([]string{"ID", "STATUS"}, [][]string{{
+					output.Str(out["id"]),
+					output.ColorState(output.Str(out["status"])),
+				}})
 			})
 		},
 	}

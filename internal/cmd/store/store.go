@@ -37,12 +37,14 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 				rows := make([][]string, 0, len(items))
 				for _, item := range items {
 					m, _ := item.(map[string]any)
+					enabled := productEnabled(m)
+					willRenew := output.OptionalBool(m["willRenew"])
 					rows = append(rows, []string{
 						output.Str(m["code"]),
 						output.Str(m["displayName"]),
-						productEnabled(m),
+						output.ColorState(enabled),
 						output.Time(m["expiresAt"]),
-						output.OptionalBool(m["willRenew"]),
+						output.ColorState(willRenew),
 						output.Price(m["price"]),
 					})
 				}

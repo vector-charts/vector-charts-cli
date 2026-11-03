@@ -136,7 +136,7 @@ Available on every command:
 | Flag | Description |
 |------|-------------|
 | `--profile <name>` | Profile to use. If omitted, use the currently-set active profile, the profile named 'default', or the only profile if only one exists.|
-| `-o, --output <table\|json>` | Output format (default `table`). |
+| `-o, --output <table\|json\|plaintext>` | Output format (default `table`). `plaintext` is the same columns as `table`, without color, as comma-separated rows. |
 | `-h, --help` | Help for the command. |
 
 ---

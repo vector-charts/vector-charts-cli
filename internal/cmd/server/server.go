@@ -264,24 +264,50 @@ func newInfoCmd(factory cli.Factory) *cobra.Command {
 				"api_error":     res.APIErr,
 			}
 			errOut := output.PrintJSONOr(payload, func() error {
-				output.Printf("name:          %s\n", name)
-				output.Printf("url:           %s\n", p.URL)
+				rows := [][]string{
+					{"NAME", name},
+					{"URL", p.URL},
+				}
 				if p.APIURL != "" && p.APIURL != p.URL {
-					output.Printf("api_url:       %s\n", p.APIURL)
+					rows = append(rows, []string{"API_URL", p.APIURL})
 				}
-				typ := firstNonEmpty(res.Type, p.Type)
-				if typ != "" {
-					output.Printf("type:          %s\n", typ)
+				if typ := firstNonEmpty(res.Type, p.Type); typ != "" {
+					rows = append(rows, []string{"TYPE", typ})
 				}
-				lastSeen := firstNonEmpty(res.LastSeen, p.LastSeen)
-				if lastSeen != "" {
-					output.Printf("last_seen:     %s\n", lastSeen)
+				if lastSeen := firstNonEmpty(res.LastSeen, p.LastSeen); lastSeen != "" {
+					rows = append(rows, []string{"LAST_SEEN", lastSeen})
 				}
-				output.Printf("current:       %v\n", name == cfg.CurrentProfile)
-				output.Printf("has_session:   %v\n", creds.SessionToken != "")
-				output.Printf("has_api_token: %v\n", creds.APIToken != "")
-				output.Printf("status:\n%s\n", indentLines(statusLines(res), "  "))
-				return nil
+				rows = append(rows,
+					[]string{"CURRENT", output.ColorState(output.Boolish(name == cfg.CurrentProfile))},
+					[]string{"HAS_SESSION", output.ColorState(output.Boolish(creds.SessionToken != ""))},
+					[]string{"HAS_API_TOKEN", output.ColorState(output.Boolish(creds.APIToken != ""))},
+					[]string{"STATUS", output.ColorState(res.Status)},
+					[]string{"AUTH", output.ColorState(res.Auth)},
+				)
+				if res.User != "" {
+					rows = append(rows, []string{"USER", res.User})
+				}
+				portal := "ok"
+				if !res.PortalOK {
+					portal = "failed"
+					if res.PortalErr != "" {
+						portal = "failed: " + res.PortalErr
+					}
+				}
+				api := "ok"
+				if !res.APIOK {
+					api = "failed"
+					if res.APIErr != "" {
+						api = "failed: " + res.APIErr
+					}
+				} else if res.APIMode != "" {
+					api = "ok (" + res.APIMode + ")"
+				}
+				rows = append(rows,
+					[]string{"PORTAL", output.ColorState(portal)},
+					[]string{"API", output.ColorState(api)},
+				)
+				return output.Table([]string{"FIELD", "VALUE"}, rows)
 			})
 			if !res.PortalOK || !res.APIOK {
 				return fmt.Errorf("one or more health checks failed")
@@ -300,17 +326,6 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
-}
-
-func indentLines(s, prefix string) string {
-	if s == "" {
-		return s
-	}
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		lines[i] = prefix + line
-	}
-	return strings.Join(lines, "\n")
 }
 
 type probeResult struct {
@@ -436,56 +451,14 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 					rows = append(rows, []string{
 						mark,
 						r.Portal,
-						colorStatus(r.Status, r.PortalOK || r.APIOK),
+						output.ColorState(r.Status),
+						output.ColorState(r.Auth),
 					})
 				}
-				return output.Table(nil, rows)
+				return output.Table([]string{"NAME", "URL", "STATUS", "AUTH"}, rows)
 			})
 		},
 	}
-}
-
-func colorStatus(status string, online bool) string {
-	if online {
-		return output.Green(status)
-	}
-	return output.Red(status)
-}
-
-func statusLines(res probeResult) string {
-	lines := []string{colorStatus(res.Status, res.PortalOK || res.APIOK)}
-	if res.Type != "" {
-		lines = append(lines, output.PaleGrey(res.Type))
-	}
-	if res.PortalOK {
-		lines = append(lines, output.PaleGrey("portal ok"))
-	} else if res.PortalErr != "" {
-		lines = append(lines, output.PaleGrey("portal: "+res.PortalErr))
-	} else {
-		lines = append(lines, output.PaleGrey("portal down"))
-	}
-	if res.APIOK {
-		api := "api ok"
-		if res.APIMode != "" && res.APIMode != res.Type {
-			api += " (" + res.APIMode + ")"
-		}
-		lines = append(lines, output.PaleGrey(api))
-	} else if res.APIErr != "" {
-		lines = append(lines, output.PaleGrey("api: "+res.APIErr))
-	} else {
-		lines = append(lines, output.PaleGrey("api down"))
-	}
-	switch res.Auth {
-	case "ok":
-		if res.User != "" {
-			lines = append(lines, output.PaleGrey("logged in as "+res.User))
-		} else {
-			lines = append(lines, output.PaleGrey("auth ok"))
-		}
-	case "failed":
-		lines = append(lines, output.PaleGrey("auth failed"))
-	}
-	return strings.Join(lines, "\n")
 }
 
 func newWhoamiCmd(factory cli.Factory) *cobra.Command {

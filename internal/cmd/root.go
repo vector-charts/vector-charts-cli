@@ -41,7 +41,7 @@ func NewRoot() *cobra.Command {
 	root.SetHelpCommand(&cobra.Command{Use: "__help_disabled", Hidden: true})
 
 	root.PersistentFlags().StringVar(&profile, "profile", "", "Profile name (default: sole profile, current_profile, or \"default\")")
-	root.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Output format: table|json")
+	root.PersistentFlags().StringVarP(&outputFmt, "output", "o", "table", "Output format: table|json|plaintext")
 
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(server.NewCommand(ResolveClient))

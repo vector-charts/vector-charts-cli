@@ -17,11 +17,11 @@ var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func SetFormat(f string) error {
 	switch strings.ToLower(f) {
-	case "table", "json":
+	case "table", "json", "plaintext":
 		Format = strings.ToLower(f)
 		return nil
 	default:
-		return fmt.Errorf("unsupported output format %q (use table or json)", f)
+		return fmt.Errorf("unsupported output format %q (use table, json, or plaintext)", f)
 	}
 }
 
@@ -39,8 +39,12 @@ func PrintJSONOr(v any, tableFn func() error) error {
 }
 
 // ColorEnabled follows https://no-color.org/ and common CLI conventions:
-// disabled when NO_COLOR is set, CLICOLOR=0, TERM=dumb, or stdout is not a TTY.
+// disabled for plaintext output, when NO_COLOR is set, CLICOLOR=0, TERM=dumb,
+// or stdout is not a TTY.
 func ColorEnabled() bool {
+	if Format == "plaintext" {
+		return false
+	}
 	if _, ok := os.LookupEnv("NO_COLOR"); ok {
 		return false
 	}
@@ -79,22 +83,33 @@ func Grey(s string) string {
 	return colorize(s, "37")
 }
 
-// ColorState colors upload/job status words for table output.
+// ColorState colors status / enum labels for table output.
 func ColorState(status string) string {
-	lower := strings.ToLower(status)
-	if strings.Contains(lower, "pending") {
+	if status == "" {
+		return status
+	}
+	lower := strings.ToLower(strings.TrimSpace(status))
+	switch {
+	case strings.HasPrefix(lower, "online"):
+		return Green(status)
+	case strings.HasPrefix(lower, "offline"):
+		return Red(status)
+	case strings.Contains(lower, "pending"):
 		return Grey(status)
 	}
-	switch lower {
-	case "succeeded", "completed", "success":
+	switch {
+	case strings.HasPrefix(lower, "ok"), lower == "succeeded", lower == "completed", lower == "success",
+		lower == "ready", lower == "true", lower == "enabled", lower == "yes", lower == "subscribed", lower == "active":
 		return Green(status)
-	case "failed", "error":
+	case strings.HasPrefix(lower, "failed"), lower == "error", lower == "denied", lower == "false",
+		lower == "disabled", lower == "no":
 		return Red(status)
-	case "warning":
+	case lower == "warning", lower == "degraded":
 		return Yellow(status)
-	case "processing", "running", "active":
+	case lower == "processing", lower == "running", lower == "uploading", lower == "downloading", lower == "syncing":
 		return Cyan(status)
-	case "uploaded", "queued", "cancelled", "scheduled":
+	case lower == "uploaded", lower == "queued", lower == "cancelled", lower == "canceled",
+		lower == "scheduled", lower == "idle", lower == "inactive", lower == "none", lower == "unknown":
 		return Grey(status)
 	default:
 		return status
@@ -117,22 +132,30 @@ func visibleLen(s string) int {
 }
 
 // Connecting prints a pale-grey status line before table output.
-// Skipped for json so machine-readable stdout stays clean.
+// Skipped for json/plaintext so machine-readable stdout stays clean.
 func Connecting(profileName string) {
-	if Format == "json" || profileName == "" {
+	if Format == "json" || Format == "plaintext" || profileName == "" {
 		return
 	}
 	_, _ = fmt.Fprintln(os.Stdout, PaleGrey(fmt.Sprintf("connecting to server '%s'...", profileName)))
 }
 
 // Table prints a bordered grid with grey column dividers and a header rule.
+// In plaintext mode, prints the same columns as comma-separated rows (no color).
 // Data rows are not separated. Pass nil/empty headers for a headerless list.
 func Table(headers []string, rows [][]string) error {
+	if Format == "plaintext" {
+		return plaintextTable(headers, rows)
+	}
 	return prettyTable(headers, rows, false)
 }
 
 // TableSeparated is like Table but draws a rule between each data row.
+// In plaintext mode this matches Table (comma-separated rows).
 func TableSeparated(headers []string, rows [][]string) error {
+	if Format == "plaintext" {
+		return plaintextTable(headers, rows)
+	}
 	return prettyTable(headers, rows, true)
 }
 
@@ -161,6 +184,55 @@ func cellWidth(cell string) int {
 		}
 	}
 	return max
+}
+
+func plaintextTable(headers []string, rows [][]string) error {
+	cols := columnCount(headers, rows)
+	if cols == 0 {
+		return nil
+	}
+	writeRow := func(cells []string) {
+		parts := make([]string, cols)
+		for i := 0; i < cols; i++ {
+			cell := ""
+			if i < len(cells) {
+				cell = cells[i]
+			}
+			parts[i] = csvField(stripANSI(cell))
+		}
+		_, _ = fmt.Fprintln(os.Stdout, strings.Join(parts, ","))
+	}
+	if len(headers) > 0 {
+		padded := make([]string, cols)
+		copy(padded, headers)
+		writeRow(padded)
+	}
+	for _, row := range rows {
+		cells := make([]string, cols)
+		for i := 0; i < cols; i++ {
+			if i < len(row) {
+				cells[i] = flattenCell(row[i])
+			}
+		}
+		writeRow(cells)
+	}
+	return nil
+}
+
+func flattenCell(cell string) string {
+	cell = stripANSI(cell)
+	cell = strings.ReplaceAll(cell, "\r\n", " ")
+	cell = strings.ReplaceAll(cell, "\n", " ")
+	cell = strings.ReplaceAll(cell, "\r", " ")
+	return strings.TrimSpace(cell)
+}
+
+func csvField(s string) string {
+	s = flattenCell(s)
+	if strings.ContainsAny(s, ",\"") {
+		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+	}
+	return s
 }
 
 func prettyTable(headers []string, rows [][]string, separateRows bool) error {

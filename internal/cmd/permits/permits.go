@@ -40,7 +40,7 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 						output.CellsLabel(m),
 						output.Str(m["type"]),
 						output.Time(m["expiresAt"]),
-						output.Boolish(m["autoRenew"]),
+						output.ColorState(output.Boolish(m["autoRenew"])),
 					})
 				}
 				return output.Table([]string{"ID", "CELLS", "TYPE", "EXPIRES", "AUTO-RENEW"}, rows)

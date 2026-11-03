@@ -147,15 +147,56 @@ func TestColorDisabledByNoColor(t *testing.T) {
 }
 
 func TestSetFormat(t *testing.T) {
-	for _, f := range []string{"table", "json", "JSON", "Table"} {
+	for _, f := range []string{"table", "json", "JSON", "Table", "plaintext", "Plaintext"} {
 		if err := SetFormat(f); err != nil {
 			t.Fatalf("SetFormat(%q): %v", f, err)
 		}
 	}
-	if err := SetFormat("plaintext"); err == nil {
-		t.Fatal("expected error for plaintext")
-	}
 	if err := SetFormat("yaml"); err == nil {
 		t.Fatal("expected error for yaml")
+	}
+}
+
+func TestPlaintextTable(t *testing.T) {
+	if err := SetFormat("plaintext"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = SetFormat("table") }()
+	out := captureStdout(t, func() {
+		if err := Table([]string{"CODE", "NAME"}, [][]string{
+			{"au", "Australia"},
+			{"uk", "United Kingdom"},
+			{"x", "a,b"},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	want := "CODE,NAME\nau,Australia\nuk,United Kingdom\nx,\"a,b\"\n"
+	if out != want {
+		t.Fatalf("got %q want %q", out, want)
+	}
+	if ColorEnabled() {
+		t.Fatal("expected ColorEnabled false in plaintext mode")
+	}
+}
+
+func TestColorState(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	cases := map[string]string{
+		"online":                     "online",
+		"offline, last seen 2h ago":  "offline, last seen 2h ago",
+		"completed":                  "completed",
+		"failed":                     "failed",
+		"running":                    "running",
+		"true":                       "true",
+		"false":                      "false",
+		"ok (cloud)":                 "ok (cloud)",
+		"failed: boom":               "failed: boom",
+		"queued":                     "queued",
+	}
+	for in, want := range cases {
+		if got := ColorState(in); got != want {
+			t.Fatalf("ColorState(%q)=%q want %q", in, got, want)
+		}
 	}
 }

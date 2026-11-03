@@ -32,7 +32,7 @@ func NewCommand(factory cli.Factory) *cobra.Command {
 					rows = append(rows, []string{
 						output.Str(m["id"]),
 						output.Str(m["cellName"]),
-						output.Boolish(output.FirstNonEmpty(m["enabled"], m["active"])),
+						output.ColorState(output.Boolish(output.FirstNonEmpty(m["enabled"], m["active"]))),
 						output.Str(m["sourceType"]),
 					})
 				}
