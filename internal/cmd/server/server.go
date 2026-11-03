@@ -403,25 +403,20 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 			_ = config.Save(cfg)
 
 			return output.PrintJSONOr(results, func() error {
-				for i, r := range results {
+				rows := make([][]string, 0, len(results))
+				for _, r := range results {
 					mark := r.Name
 					if r.Name == cfg.CurrentProfile {
 						mark = r.Name + "*"
 					}
-					if i > 0 {
-						output.Println()
-					}
-					if err := output.Table(
-						[]string{mark, r.Portal},
-						[][]string{
-							{"STATUS", output.ColorState(r.Status)},
-							{"AUTH", output.ColorState(r.Auth)},
-						},
-					); err != nil {
-						return err
-					}
+					rows = append(rows, []string{
+						mark,
+						r.Portal,
+						output.ColorState(r.Status),
+						output.ColorState(r.Auth),
+					})
 				}
-				return nil
+				return output.Table([]string{"NAME", "URL", "STATUS", "AUTH"}, rows)
 			})
 		},
 	}
