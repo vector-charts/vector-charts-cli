@@ -58,7 +58,7 @@ func Listen(group string, port int, timeout time.Duration) ([]Peer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen udp :%d: %w", port, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	pconn := ipv4.NewPacketConn(conn)
 	groupAddr := &net.UDPAddr{IP: net.ParseIP(group)}

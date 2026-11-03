@@ -124,7 +124,7 @@ func (c *Client) doJSON(method, rawURL, bearer string, in any, out any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -360,7 +360,7 @@ func (c *Client) UploadChart(filePath string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
@@ -387,7 +387,7 @@ func (c *Client) UploadChart(filePath string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

@@ -589,7 +589,7 @@ func newLoginCmd(factory cli.Factory) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				sessionID, user, err := client.Login(username, password)
+				sessionID, _, err := client.Login(username, password)
 				if err != nil {
 					return err
 				}

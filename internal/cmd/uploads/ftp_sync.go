@@ -154,7 +154,7 @@ func runFTPSync(client *httpx.Client, opts ftpSyncOptions) error {
 	if err != nil {
 		return fmt.Errorf("ftp dial: %w", err)
 	}
-	defer conn.Quit()
+	defer func() { _ = conn.Quit() }()
 
 	if err := conn.Login(username, password); err != nil {
 		return fmt.Errorf("ftp login: %w", err)
@@ -343,13 +343,13 @@ func downloadFTPFile(conn *ftp.ServerConn, remoteName, localPath string) error {
 	if err != nil {
 		return fmt.Errorf("ftp retr %s: %w", remoteName, err)
 	}
-	defer resp.Close()
+	defer func() { _ = resp.Close() }()
 
 	f, err := os.Create(localPath)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if _, err := io.Copy(f, resp); err != nil {
 		return fmt.Errorf("ftp write %s: %w", localPath, err)

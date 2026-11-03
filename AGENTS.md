@@ -1,0 +1,42 @@
+# Agent instructions
+
+## Commit messages
+
+When creating git commits in this repo, always use a conventional prefix:
+
+```
+<type>: <short description>
+```
+
+### Allowed types
+
+- `feat:` - new user-facing capability or command
+- `fix:` / `bugfix:` - bug fix
+- `chore:` - maintenance, cleanup, tooling, non-user-facing tweaks
+- `docs:` - documentation only
+- `refactor:` - code restructure with no behavior change
+- `test:` - tests only
+- `ci:` - CI / GitHub Actions
+- `build:` - build system, packaging, nix, goreleaser
+- `perf:` - performance improvement
+
+### Rules
+
+- Prefer one type that best matches the primary intent of the commit
+- Description is lowercase, imperative, concise (no trailing period)
+- Do not write unprefixed messages like `Initial implementation` or `Fix stuff`
+- If amending or rewriting history, keep the same prefix style
+
+### Examples
+
+```
+feat: add ftp sync command
+bugfix: handle empty discovery responses
+chore: tidy go.mod dependencies
+ci: lint and cross-build on every push
+docs: document nix develop workflow
+```
+
+## Comments and prose
+
+Never use em dashes anywhere in code, comments, docs, or commit messages; prefer plain hyphens or rephrase. Prefer no comments; when needed, keep them short and only explain non-obvious intent. Never comment that something is missing, removed, unfinished, or changed (no "not implemented", "formerly X", "removed Y", TODOs about absent behavior, etc.).

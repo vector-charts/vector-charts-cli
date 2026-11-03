@@ -122,7 +122,7 @@ func Connecting(profileName string) {
 	if Format == "json" || profileName == "" {
 		return
 	}
-	fmt.Fprintln(os.Stdout, PaleGrey(fmt.Sprintf("connecting to server '%s'...", profileName)))
+	_, _ = fmt.Fprintln(os.Stdout, PaleGrey(fmt.Sprintf("connecting to server '%s'...", profileName)))
 }
 
 // Table prints a bordered grid with grey column dividers and a header rule.
@@ -187,20 +187,20 @@ func prettyTable(headers []string, rows [][]string, separateRows bool) error {
 	}
 
 	hasHeader := len(headers) > 0
-	fmt.Fprintln(os.Stdout, borderLine(widths, "┌", "┬", "┐"))
+	_, _ = fmt.Fprintln(os.Stdout, borderLine(widths, "┌", "┬", "┐"))
 	if hasHeader {
 		padded := make([]string, cols)
 		copy(padded, headers)
 		printBorderedRow(padded, widths)
-		fmt.Fprintln(os.Stdout, borderLine(widths, "├", "┼", "┤"))
+		_, _ = fmt.Fprintln(os.Stdout, borderLine(widths, "├", "┼", "┤"))
 	}
 	for i, row := range normalized {
 		if separateRows && i > 0 {
-			fmt.Fprintln(os.Stdout, borderLine(widths, "├", "┼", "┤"))
+			_, _ = fmt.Fprintln(os.Stdout, borderLine(widths, "├", "┼", "┤"))
 		}
 		printBorderedMultilineRow(row, widths)
 	}
-	fmt.Fprintln(os.Stdout, borderLine(widths, "└", "┴", "┘"))
+	_, _ = fmt.Fprintln(os.Stdout, borderLine(widths, "└", "┴", "┘"))
 	return nil
 }
 
@@ -227,7 +227,7 @@ func printBorderedRow(cells []string, widths []int) {
 		}
 		parts[i] = " " + cell + strings.Repeat(" ", pad) + " "
 	}
-	fmt.Fprintln(os.Stdout, vbar+strings.Join(parts, vbar)+vbar)
+	_, _ = fmt.Fprintln(os.Stdout, vbar+strings.Join(parts, vbar)+vbar)
 }
 
 // Expand a logical row whose cells may contain newlines into one printed
@@ -258,13 +258,13 @@ func printBorderedMultilineRow(cells []string, widths []int) {
 }
 
 func Println(a ...any) {
-	fmt.Fprintln(os.Stdout, a...)
+	_, _ = fmt.Fprintln(os.Stdout, a...)
 }
 
 func Printf(format string, a ...any) {
-	fmt.Fprintf(os.Stdout, format, a...)
+	_, _ = fmt.Fprintf(os.Stdout, format, a...)
 }
 
 func Errf(format string, a ...any) {
-	fmt.Fprintf(os.Stderr, format, a...)
+	_, _ = fmt.Fprintf(os.Stderr, format, a...)
 }

@@ -1,6 +1,8 @@
 # Vector Charts CLI (`vc`)
 
-Command-line tool for connecting to Vector Charts Cloud and OEM instances: profile management, interactive login, API tokens, chart uploads, custom cells, licenses/permits, store subscriptions, and job status.
+The Vector Charts CLI is a tool to interface & manage instances of [Vector Charts](https://vectorcharts.com/), a nautical chart & geospatial data platform. The CLI interfaces with the Vector Charts control plane in order to speed up common tasks such as chart & upload file management and job monitoring.
+
+In addition to being a useful utility, this project serves as an example of how to interact with Vector Charts software programmatically.
 
 ## Install
 
@@ -29,8 +31,8 @@ nix run github:vector-charts/vector-charts-cli -- version
 ### From source
 
 ```bash
-go build -o vc ./cmd/vc
-sudo install -m 755 vc /usr/local/bin/vc
+go build -o build/vc ./cmd/vc
+sudo install -m 755 build/vc /usr/local/bin/vc
 ```
 
 ## Quick start
@@ -142,8 +144,32 @@ Start a new shell after installing permanent completions.
 ## Development
 
 ```bash
-go build -o vc ./cmd/vc
+go build -o build/vc ./cmd/vc
 go test ./...
+```
+
+### Nix
+
+Requires [Nix](https://nixos.org/download/) with flakes enabled (`experimental-features = nix-command flakes` in `nix.conf`).
+
+Enter the flake dev shell (Go, gopls, gotools, goreleaser):
+
+```bash
+nix develop
+```
+
+Then build and test as usual:
+
+```bash
+go build -o build/vc ./cmd/vc
+go test ./...
+```
+
+Or build / run the packaged binary without entering the shell:
+
+```bash
+nix build            # result -> ./result/bin/vc
+nix run -- version   # run without installing
 ```
 
 ### Dev symlink
@@ -151,17 +177,17 @@ go test ./...
 To run the repo binary as `vc` without copying into `/usr/local/bin` on every rebuild, symlink it onto your `PATH`:
 
 ```bash
-go build -o vc ./cmd/vc
-sudo ln -sf "$(pwd)/vc" /usr/local/bin/vc
+go build -o build/vc ./cmd/vc
+sudo ln -sf "$(pwd)/build/vc" /usr/local/bin/vc
 ```
 
-Rebuild with `go build -o vc ./cmd/vc` and the same `vc` on your `PATH` picks up the new binary. Remove the symlink (or replace it with a release install) when you are done developing.
+Rebuild with `go build -o build/vc ./cmd/vc` and the same `vc` on your `PATH` picks up the new binary. Remove the symlink (or replace it with a release install) when you are done developing.
 
 If `/usr/local/bin` is not writable, use a user-local directory on your `PATH` instead:
 
 ```bash
 mkdir -p "$HOME/.local/bin"
-ln -sf "$(pwd)/vc" "$HOME/.local/bin/vc"
+ln -sf "$(pwd)/build/vc" "$HOME/.local/bin/vc"
 ```
 
 Interactive login requires portal device-auth endpoints (`POST /api/portal/v1/auth/device/*`) and the SPA `/device` page.
