@@ -61,9 +61,44 @@ func Red(s string) string {
 	return colorize(s, "31")
 }
 
+func Yellow(s string) string {
+	return colorize(s, "33")
+}
+
+func Cyan(s string) string {
+	return colorize(s, "36")
+}
+
 // PaleGrey is bright-black text for status lines and table borders.
 func PaleGrey(s string) string {
 	return colorize(s, "90")
+}
+
+// Grey is a light-grey status color (ANSI white), clearer than PaleGrey for state labels.
+func Grey(s string) string {
+	return colorize(s, "37")
+}
+
+// ColorState colors upload/job status words for table output.
+func ColorState(status string) string {
+	lower := strings.ToLower(status)
+	if strings.Contains(lower, "pending") {
+		return Grey(status)
+	}
+	switch lower {
+	case "succeeded", "completed", "success":
+		return Green(status)
+	case "failed", "error":
+		return Red(status)
+	case "warning":
+		return Yellow(status)
+	case "processing", "running", "active":
+		return Cyan(status)
+	case "uploaded", "queued", "cancelled", "scheduled":
+		return Grey(status)
+	default:
+		return status
+	}
 }
 
 func colorize(s, code string) string {

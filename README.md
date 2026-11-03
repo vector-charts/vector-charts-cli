@@ -48,13 +48,14 @@ vc server login          # opens browser device flow
 vc server discover       # find instances on the LAN (UDP multicast)
 vc server list           # connectivity + auth probe
 vc server whoami
-vc charts uploads create ./chart.zip
-vc charts cells list
-vc permits list
+vc upload create ./chart.zip
+vc chart list
+vc permit show-s63-user-permit
+vc license list
 vc store list
 vc store enable au
-vc tokens list
-vc jobs status
+vc token list
+vc job status
 ```
 
 Config lives under `~/.vector-charts/`:
@@ -71,16 +72,72 @@ If `--profile` is omitted: the sole profile is used when only one exists, else `
 | Group | Purpose |
 |-------|---------|
 | `vc server` | Profiles, login/logout, connectivity |
-| `vc tokens` | Portal API token CRUD (`token` alias) |
-| `vc charts` | Uploads / cells / S-63 user permit (`chart` alias) |
-| `vc permits` | List licenses and S-63 cell permits (`licenses` alias) |
-| `vc store` | Chart store subscriptions: list / enable / disable (`subscriptions` alias) |
-| `vc jobs` | List jobs and status snapshot |
+| `vc token` | Portal API token CRUD |
+| `vc chart` | Custom cells: list / enable / disable / status |
+| `vc upload` | Chart upload create / list / status / sync / ftp-sync / delete |
+| `vc permit` | S-63 permit helpers (`show-s63-user-permit`) |
+| `vc license` | List licenses and S-63 cell permits |
+| `vc store` | Chart store subscriptions: list / enable / disable |
+| `vc job` | List jobs and status snapshot |
+| `vc cli` | CLI utilities (shell completion) |
 
 Global flags: `--profile`, `--format` / `-f` `table|json` (`-o` alias), `--url`.
 
 - `table` — aligned columns (default)
 - `json` — indented JSON
+
+## Shell completion
+
+Generate scripts with `vc cli completion <shell>`.
+
+### Bash
+
+Requires the `bash-completion` package.
+
+```bash
+# current session
+source <(vc cli completion bash)
+
+# every new session (Linux)
+vc cli completion bash | sudo tee /etc/bash_completion.d/vc > /dev/null
+
+# every new session (macOS / Homebrew)
+vc cli completion bash > "$(brew --prefix)/etc/bash_completion.d/vc"
+```
+
+### Zsh
+
+```bash
+# current session
+source <(vc cli completion zsh)
+
+# every new session — write into a directory on your $fpath
+vc cli completion zsh > "${fpath[1]}/_vc"
+```
+
+If completions do not load, ensure `compinit` runs in your `~/.zshrc`.
+
+### Fish
+
+```fish
+# current session
+vc cli completion fish | source
+
+# every new session
+vc cli completion fish > ~/.config/fish/completions/vc.fish
+```
+
+### PowerShell
+
+```powershell
+# current session
+vc cli completion powershell | Out-String | Invoke-Expression
+
+# every new session — add the line above to your PowerShell profile
+# ($PROFILE), or write the script to a file and dot-source it from there
+```
+
+Start a new shell after installing permanent completions.
 
 ## Development
 

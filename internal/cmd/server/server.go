@@ -28,11 +28,10 @@ func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd.AddCommand(newAddCmd())
 	cmd.AddCommand(newRemoveCmd())
 	cmd.AddCommand(newUseCmd())
-	cmd.AddCommand(newShowCmd(factory))
+	cmd.AddCommand(newInfoCmd(factory))
 	cmd.AddCommand(newLoginCmd(factory))
 	cmd.AddCommand(newLogoutCmd(factory))
 	cmd.AddCommand(newWhoamiCmd(factory))
-	cmd.AddCommand(newStatusCmd(factory))
 	cmd.AddCommand(newDiscoverCmd())
 	return cmd
 }
@@ -213,55 +212,105 @@ func newUseCmd() *cobra.Command {
 	}
 }
 
-func newShowCmd(factory cli.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "show [name]",
-		Short: "Show a profile (default: current)",
-		Args:  cobra.MaximumNArgs(1),
+func newInfoCmd(factory cli.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "info [name]",
+		Aliases: []string{"show", "status"},
+		Short:   "Show profile details and probe connectivity (default: current)",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
 				return err
 			}
-			name := ""
+
+			var name string
+			var p config.Profile
+			var creds config.Creds
 			if len(args) == 1 {
-				name = args[0]
+				name, p, err = cfg.Resolve(args[0])
+				if err != nil {
+					return err
+				}
+				credsFile, _ := config.LoadCredentials()
+				creds = credsFile.Profiles[name]
+			} else {
+				name, p, creds, _, err = factory(false)
+				if err != nil {
+					return err
+				}
 			}
-			name, p, err := cfg.Resolve(name)
-			if err != nil {
-				return err
+
+			res := probeProfile(name, p, creds)
+			if res.PortalOK || res.APIOK {
+				_ = config.TouchLastSeen(name)
 			}
-			credsFile, _ := config.LoadCredentials()
-			creds := credsFile.Profiles[name]
 			payload := map[string]any{
 				"name":          name,
 				"url":           p.URL,
 				"api_url":       p.APIURL,
-				"type":          p.Type,
-				"last_seen":     p.LastSeen,
+				"type":          firstNonEmpty(res.Type, p.Type),
+				"last_seen":     firstNonEmpty(res.LastSeen, p.LastSeen),
 				"current":       name == cfg.CurrentProfile,
 				"has_session":   creds.SessionToken != "",
 				"has_api_token": creds.APIToken != "",
+				"status":        res.Status,
+				"portal_ok":     res.PortalOK,
+				"api_ok":        res.APIOK,
+				"auth":          res.Auth,
+				"user":          res.User,
+				"api_mode":      res.APIMode,
+				"portal_error":  res.PortalErr,
+				"api_error":     res.APIErr,
 			}
-			return output.PrintJSONOr(payload, func() error {
+			errOut := output.PrintJSONOr(payload, func() error {
 				output.Printf("name:          %s\n", name)
 				output.Printf("url:           %s\n", p.URL)
 				if p.APIURL != "" && p.APIURL != p.URL {
 					output.Printf("api_url:       %s\n", p.APIURL)
 				}
-				if p.Type != "" {
-					output.Printf("type:          %s\n", p.Type)
+				typ := firstNonEmpty(res.Type, p.Type)
+				if typ != "" {
+					output.Printf("type:          %s\n", typ)
 				}
-				if p.LastSeen != "" {
-					output.Printf("last_seen:     %s\n", p.LastSeen)
+				lastSeen := firstNonEmpty(res.LastSeen, p.LastSeen)
+				if lastSeen != "" {
+					output.Printf("last_seen:     %s\n", lastSeen)
 				}
 				output.Printf("current:       %v\n", name == cfg.CurrentProfile)
 				output.Printf("has_session:   %v\n", creds.SessionToken != "")
 				output.Printf("has_api_token: %v\n", creds.APIToken != "")
+				output.Printf("status:\n%s\n", indentLines(statusLines(res), "  "))
 				return nil
 			})
+			if !res.PortalOK || !res.APIOK {
+				return fmt.Errorf("one or more health checks failed")
+			}
+			return errOut
 		},
 	}
+	cli.HideAliases(cmd)
+	return cmd
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func indentLines(s, prefix string) string {
+	if s == "" {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = prefix + line
+	}
+	return strings.Join(lines, "\n")
 }
 
 type probeResult struct {
@@ -437,30 +486,6 @@ func statusLines(res probeResult) string {
 		lines = append(lines, output.PaleGrey("auth failed"))
 	}
 	return strings.Join(lines, "\n")
-}
-
-func newStatusCmd(factory cli.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "status",
-		Short: "Probe connectivity for the current profile",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			name, p, creds, _, err := factory(false)
-			if err != nil {
-				return err
-			}
-			res := probeProfile(name, p, creds)
-			if res.PortalOK || res.APIOK {
-				_ = config.TouchLastSeen(name)
-			}
-			errOut := output.PrintJSONOr(res, func() error {
-				return output.Table(nil, [][]string{{res.Name, statusLines(res)}})
-			})
-			if !res.PortalOK || !res.APIOK {
-				return fmt.Errorf("one or more health checks failed")
-			}
-			return errOut
-		},
-	}
 }
 
 func newWhoamiCmd(factory cli.Factory) *cobra.Command {

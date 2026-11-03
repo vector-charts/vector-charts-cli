@@ -9,9 +9,10 @@ import (
 func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "store",
-		Aliases: []string{"subscriptions"},
+		Aliases: []string{"subscription", "subscriptions"},
 		Short:   "Manage chart store subscriptions",
 	}
+	cli.HideAliases(cmd)
 	cmd.AddCommand(newListCmd(factory))
 	cmd.AddCommand(newEnableCmd(factory))
 	cmd.AddCommand(newDisableCmd(factory))

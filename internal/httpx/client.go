@@ -399,5 +399,8 @@ func (c *Client) UploadChart(filePath string) (map[string]any, error) {
 	if err := json.Unmarshal(data, &out); err != nil {
 		return nil, err
 	}
+	if upload, ok := out["upload"].(map[string]any); ok {
+		return upload, nil
+	}
 	return out, nil
 }

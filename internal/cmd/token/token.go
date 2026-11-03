@@ -8,10 +8,11 @@ import (
 
 func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "tokens",
-		Aliases: []string{"token"},
+		Use:     "token",
+		Aliases: []string{"tokens"},
 		Short:   "Manage portal API tokens",
 	}
+	cli.HideAliases(cmd)
 	cmd.AddCommand(newListCmd(factory))
 	cmd.AddCommand(newCreateCmd(factory))
 	cmd.AddCommand(newUpdateCmd(factory))

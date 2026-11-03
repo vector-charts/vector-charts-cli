@@ -141,7 +141,7 @@ func TestColorDisabledByNoColor(t *testing.T) {
 	if ColorEnabled() {
 		t.Fatal("expected ColorEnabled false with NO_COLOR")
 	}
-	if Green("online") != "online" || Red("offline") != "offline" || PaleGrey("x") != "x" {
+	if Green("online") != "online" || Red("offline") != "offline" || Yellow("warn") != "warn" || Cyan("run") != "run" || PaleGrey("x") != "x" {
 		t.Fatal("expected no ANSI when colors disabled")
 	}
 }

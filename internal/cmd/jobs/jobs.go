@@ -11,20 +11,25 @@ import (
 
 func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jobs",
-		Short: "Inspect background jobs",
+		Use:     "job",
+		Aliases: []string{"jobs"},
+		Short:   "Inspect background jobs",
 	}
+	cli.HideAliases(cmd)
 	cmd.AddCommand(newListCmd(factory))
 	cmd.AddCommand(newStatusCmd(factory))
 	return cmd
 }
 
 func newListCmd(factory cli.Factory) *cobra.Command {
-	var activeOnly bool
+	var activeOnly, showAll bool
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List jobs",
+		Short: "List jobs (hides completed and scheduled unless --all)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if activeOnly && showAll {
+				return fmt.Errorf("--active-only and --all cannot be used together")
+			}
 			_, _, _, client, err := factory(true)
 			if err != nil {
 				return err
@@ -37,6 +42,10 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if !activeOnly && !showAll {
+				items = filterDefaultJobs(items)
+				out = map[string]any{"jobs": items}
+			}
 			return output.PrintJSONOr(out, func() error {
 				rows := make([][]string, 0, len(items))
 				for _, item := range items {
@@ -44,7 +53,7 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 					rows = append(rows, []string{
 						output.Str(m["id"]),
 						output.Str(m["jobType"]),
-						output.Str(m["jobState"]),
+						output.ColorState(output.Str(m["jobState"])),
 						output.Time(m["createdAt"]),
 					})
 				}
@@ -52,8 +61,22 @@ func newListCmd(factory cli.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&activeOnly, "active-only", false, "Only active jobs")
+	cmd.Flags().BoolVar(&activeOnly, "active-only", false, "Only pending/running jobs")
+	cmd.Flags().BoolVar(&showAll, "all", false, "Include completed and scheduled jobs")
 	return cmd
+}
+
+func filterDefaultJobs(items []any) []any {
+	out := make([]any, 0, len(items))
+	for _, item := range items {
+		m, _ := item.(map[string]any)
+		switch strings.ToLower(output.Str(m["jobState"])) {
+		case "completed", "scheduled":
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 func shortJobID(id string) string {
@@ -76,39 +99,23 @@ func jobPercent(m map[string]any) float64 {
 	}
 }
 
-func colorJobLine(state, line string) string {
-	switch strings.ToLower(state) {
-	case "running", "active":
-		return output.Green(line)
-	case "pending":
-		return output.PaleGrey(line)
-	case "failed", "error":
-		return output.Red(line)
-	default:
-		return line
-	}
-}
-
 func formatJobLine(m map[string]any) string {
 	name := output.Str(m["jobType"])
 	if name == "" {
 		name = "job"
 	}
 	id := shortJobID(output.Str(m["id"]))
-	state := output.Str(m["jobState"])
+	state := output.ColorState(output.Str(m["jobState"]))
 	percent := fmt.Sprintf("%.0f%%", jobPercent(m))
 	started := output.Time(m["createdAt"])
 	if started == "" {
 		started = "-"
 	}
 
-	var line string
 	if id != "" {
-		line = fmt.Sprintf("%s (%s): %s, %s, %s", name, id, state, percent, started)
-	} else {
-		line = fmt.Sprintf("%s: %s, %s, %s", name, state, percent, started)
+		return fmt.Sprintf("%s (%s): %s, %s, %s", name, id, state, percent, started)
 	}
-	return colorJobLine(state, line)
+	return fmt.Sprintf("%s: %s, %s, %s", name, state, percent, started)
 }
 
 func newStatusCmd(factory cli.Factory) *cobra.Command {

@@ -7,11 +7,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zydro-marine/vector-charts-cli/internal/cli"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/charts"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/clicmd"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/jobs"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/permit"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/permits"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/server"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/store"
 	"github.com/zydro-marine/vector-charts-cli/internal/cmd/token"
+	"github.com/zydro-marine/vector-charts-cli/internal/cmd/uploads"
 	"github.com/zydro-marine/vector-charts-cli/internal/config"
 	"github.com/zydro-marine/vector-charts-cli/internal/httpx"
 	"github.com/zydro-marine/vector-charts-cli/internal/output"
@@ -34,6 +37,9 @@ func NewRoot() *cobra.Command {
 			return output.SetFormat(outputFmt)
 		},
 	}
+	root.CompletionOptions.DisableDefaultCmd = true
+	// Disable the standalone "help" command; --help remains available.
+	root.SetHelpCommand(&cobra.Command{Use: "__help_disabled", Hidden: true})
 
 	root.PersistentFlags().StringVar(&profile, "profile", "", "Profile name (default: sole profile, current_profile, or \"default\")")
 	root.PersistentFlags().StringVarP(&outputFmt, "format", "f", "table", "Output format: table|json")
@@ -44,9 +50,12 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(server.NewCommand(ResolveClient))
 	root.AddCommand(token.NewCommand(ResolveClient))
 	root.AddCommand(charts.NewCommand(ResolveClient))
+	root.AddCommand(uploads.NewCommand(ResolveClient))
+	root.AddCommand(permit.NewCommand(ResolveClient))
 	root.AddCommand(permits.NewCommand(ResolveClient))
 	root.AddCommand(store.NewCommand(ResolveClient))
 	root.AddCommand(jobs.NewCommand(ResolveClient))
+	root.AddCommand(clicmd.NewCommand())
 
 	return root
 }

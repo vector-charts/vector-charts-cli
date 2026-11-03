@@ -10,7 +10,10 @@ require (
 )
 
 require (
+	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jlaffaye/ftp v0.2.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 )

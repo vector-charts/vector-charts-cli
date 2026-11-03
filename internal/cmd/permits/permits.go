@@ -8,10 +8,11 @@ import (
 
 func NewCommand(factory cli.Factory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "permits",
-		Aliases: []string{"licenses"},
+		Use:     "license",
+		Aliases: []string{"licenses", "permits"},
 		Short:   "List account chart licenses and S-63 cell permits",
 	}
+	cli.HideAliases(cmd)
 	cmd.AddCommand(newListCmd(factory))
 	return cmd
 }
